@@ -48,9 +48,8 @@ export class ApifyService {
     }
 
     try {
-      // Menggunakan actor ID yang benar untuk Facebook scraping
-      // Ganti dengan actor ID yang sesuai dari Apify marketplace
-      const actorId = 'apify/facebook-pages-scraper'; // atau actor ID lain yang valid
+      // Menggunakan Facebook Comments Scraper actor
+      const actorId = 'apify~facebook-comments-scraper';
       
       const response = await fetch(`https://api.apify.com/v2/acts/${actorId}/run-sync`, {
         method: 'POST',
