@@ -48,27 +48,57 @@ export class ApifyService {
     }
 
     try {
-      // Simulasi call ke Apify API - ganti dengan actual API call
-      const response = await fetch('https://api.apify.com/v2/acts/facebook-scraper/run-sync', {
+      // Menggunakan actor ID yang benar untuk Facebook scraping
+      // Ganti dengan actor ID yang sesuai dari Apify marketplace
+      const actorId = 'apify/facebook-pages-scraper'; // atau actor ID lain yang valid
+      
+      const response = await fetch(`https://api.apify.com/v2/acts/${actorId}/run-sync`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          url: facebookUrl,
-          scrapeComments: true,
+          startUrls: [{ url: facebookUrl }],
+          maxPosts: 1,
+          commentsMode: 'RANKED_UNFILTERED',
           maxComments: 100
         })
       });
 
+      console.log('Response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        
+        // Jika actor tidak ditemukan, gunakan demo data
+        if (response.status === 404 && errorData.error?.type === 'record-not-found') {
+          console.warn('Actor tidak ditemukan, menggunakan demo data...');
+          return {
+            success: true,
+            data: {
+              comments: this.generateDemoComments(),
+              postData: {
+                title: "Demo - Post Facebook",
+                content: "Ini adalah demo data karena actor Apify belum dikonfigurasi dengan benar. Untuk menggunakan data real, pastikan Anda menggunakan actor ID yang tepat.",
+                author: "Demo User", 
+                timestamp: new Date().toISOString(),
+                likes: 150,
+                shares: 25
+              }
+            }
+          };
+        }
+        
+        throw new Error(`HTTP error! status: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
+      console.log('API Response:', data);
       
-      // Simulasi data untuk demo - ganti dengan response API yang sebenarnya
+      // TODO: Parse data dari Apify response yang sebenarnya
+      // Untuk sementara, gunakan demo data
       return {
         success: true,
         data: {

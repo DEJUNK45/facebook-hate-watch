@@ -6,6 +6,7 @@ import { StatisticsCards } from '@/components/StatisticsCards';
 import { AnalysisChart } from '@/components/AnalysisChart';
 import { CommentsList } from '@/components/CommentsList';
 import { PostInfo } from '@/components/PostInfo';
+import { ApifyActorGuide } from '@/components/ApifyActorGuide';
 import { Button } from '@/components/ui/button';
 import { Settings, RotateCcw } from 'lucide-react';
 
@@ -84,6 +85,7 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8">
         {!analysisData ? (
           <div className="max-w-2xl mx-auto">
+            <ApifyActorGuide />
             <AnalysisForm onAnalysisComplete={handleAnalysisComplete} />
           </div>
         ) : (
