@@ -43,74 +43,112 @@ export class ApifyService {
 
   static async scrapePost(facebookUrl: string): Promise<ApifyResponse> {
     try {
-      console.log('Simulasi pengambilan komentar dari Apify untuk URL:', facebookUrl);
+      console.log('Memulai scraping komentar dari Apify untuk URL:', facebookUrl);
       
-      // Menggunakan endpoint API langsung dengan token yang disediakan
+      // Menggunakan endpoint API Apify yang benar
       const apiEndpoint = 'https://api.apify.com/v2/acts/apify~facebook-comments-scraper/run-sync-get-dataset-items?token=apify_api_SgkA4cqAEBu4qSegnCxUKkerpLqzPU1iouan';
+      
+      const requestBody = {
+        includeNestedComments: false,
+        resultsLimit: 100,
+        startUrls: [
+          {
+            url: facebookUrl,
+            method: "GET"
+          }
+        ]
+      };
+
+      console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          includeNestedComments: false,
-          resultsLimit: 550,
-          startUrls: [
-            {
-              url: facebookUrl,
-              method: "GET"
-            }
-          ]
-        })
+        body: JSON.stringify(requestBody)
       });
 
       console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers));
       
       if (!response.ok) {
-        console.warn('API response not ok, using demo data');
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        
         return {
-          success: true,
-          data: {
-            comments: this.generateDemoComments(),
-            postData: {
-              title: "Demo - Post Facebook",
-              content: "Menggunakan demo data karena API tidak tersedia.",
-              author: "Demo User", 
-              timestamp: new Date().toISOString(),
-              likes: 150,
-              shares: 25
-            }
-          }
+          success: false,
+          error: `API Error ${response.status}: ${errorText}`
         };
       }
 
       const responseData = await response.json();
-      console.log('API Response:', responseData);
+      console.log('Raw API Response:', responseData);
       
-      // Parse data sebenarnya dari Apify jika tersedia
+      // Cek apakah response adalah array dengan data
       if (responseData && Array.isArray(responseData) && responseData.length > 0) {
-        const apifyData = responseData[0];
-        const comments = this.parseApifyComments(apifyData);
-        const postData = this.parseApifyPostData(apifyData);
+        console.log('Processing Apify data...');
         
-        return {
-          success: true,
-          data: {
-            comments,
-            postData
-          }
+        // Ambil semua komentar dari response
+        const allComments: ApifyComment[] = [];
+        const postInfo = {
+          title: "Facebook Post",
+          content: "",
+          author: "Facebook User",
+          timestamp: new Date().toISOString(),
+          likes: 0,
+          shares: 0
         };
+
+        responseData.forEach((item, index) => {
+          console.log(`Processing item ${index}:`, item);
+          
+          // Ekstrak komentar dari setiap item
+          if (item.comments && Array.isArray(item.comments)) {
+            item.comments.forEach((comment: any, commentIndex: number) => {
+              allComments.push({
+                id: comment.id || `comment_${index}_${commentIndex}`,
+                author: comment.author || comment.authorName || `User ${commentIndex + 1}`,
+                text: comment.text || comment.content || '',
+                timestamp: comment.timestamp || comment.createdAt || new Date().toISOString(),
+                likes: comment.likes || comment.likesCount || 0,
+                replies: comment.replies || comment.repliesCount || 0
+              });
+            });
+          }
+          
+          // Ekstrak info post jika ada
+          if (item.post) {
+            postInfo.title = item.post.text?.substring(0, 100) || postInfo.title;
+            postInfo.content = item.post.text || postInfo.content;
+            postInfo.author = item.post.author || postInfo.author;
+            postInfo.likes = item.post.likes || postInfo.likes;
+            postInfo.shares = item.post.shares || postInfo.shares;
+          }
+        });
+
+        console.log(`Total comments found: ${allComments.length}`);
+        
+        if (allComments.length > 0) {
+          return {
+            success: true,
+            data: {
+              comments: allComments,
+              postData: postInfo
+            }
+          };
+        }
       }
       
-      // Fallback ke demo data
+      // Jika tidak ada data atau format tidak sesuai
+      console.warn('No valid data found in API response, using demo data');
       return {
         success: true,
         data: {
           comments: this.generateDemoComments(),
           postData: {
-            title: "Post Facebook Demo",
-            content: "Ini adalah contoh konten postingan Facebook yang akan dianalisis untuk ujaran kebencian.",
+            title: "Demo - Post Facebook",
+            content: "Data demo digunakan karena tidak ada data dari API.",
             author: "Demo User",
             timestamp: new Date().toISOString(),
             likes: 150,
@@ -118,6 +156,7 @@ export class ApifyService {
           }
         }
       };
+      
     } catch (error) {
       console.error('Error scraping Facebook post:', error);
       return { 
