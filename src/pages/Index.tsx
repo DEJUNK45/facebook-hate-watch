@@ -8,7 +8,8 @@ import { CommentsList } from '@/components/CommentsList';
 import { PostInfo } from '@/components/PostInfo';
 import { ApifyActorGuide } from '@/components/ApifyActorGuide';
 import { Button } from '@/components/ui/button';
-import { Settings, RotateCcw } from 'lucide-react';
+import { Settings, RotateCcw, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Index = () => {
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -56,6 +57,16 @@ const Index = () => {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <Link to="/facebook-analysis">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Simple Version
+                </Button>
+              </Link>
               {analysisData && (
                 <Button
                   variant="outline"
