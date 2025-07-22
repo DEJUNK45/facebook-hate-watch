@@ -54,8 +54,14 @@ export class ApifyService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          startUrls: [{ url: facebookUrl }],
-          maxItems: 50
+          includeNestedComments: false,
+          resultsLimit: 550,
+          startUrls: [
+            {
+              url: facebookUrl,
+              method: "GET"
+            }
+          ]
         })
       });
 
