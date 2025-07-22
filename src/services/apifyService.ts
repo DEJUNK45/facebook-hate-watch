@@ -42,42 +42,34 @@ export class ApifyService {
   }
 
   static async scrapePost(facebookUrl: string): Promise<ApifyResponse> {
-    const apiKey = this.getApiKey();
-    if (!apiKey) {
-      return { success: false, error: 'API key tidak ditemukan' };
-    }
-
     try {
-      // Menggunakan actor task yang sudah dikonfigurasi
-      const taskId = 'dewadegungagung~facebook-comments-scraper-task';
+      console.log('Simulasi pengambilan komentar dari Apify untuk URL:', facebookUrl);
       
-      // Jalankan task dengan input URL
-      const runResponse = await fetch(`https://api.apify.com/v2/actor-tasks/${taskId}/run-sync`, {
+      // Menggunakan endpoint API langsung dengan token yang disediakan
+      const apiEndpoint = 'https://api.apify.com/v2/acts/apify~facebook-comments-scraper/run-sync-get-dataset-items?token=apify_api_SgkA4cqAEBu4qSegnCxUKkerpLqzPU1iouan';
+      
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          startUrls: [{ url: facebookUrl }]
+          startUrls: [{ url: facebookUrl }],
+          maxItems: 50
         })
       });
 
-      console.log('Run response status:', runResponse.status);
+      console.log('Response status:', response.status);
       
-      if (!runResponse.ok) {
-        const errorData = await runResponse.json();
-        console.error('Run API Error:', errorData);
-        
-        // Fallback ke demo data jika ada error
-        console.warn('Menggunakan demo data karena ada error...');
+      if (!response.ok) {
+        console.warn('API response not ok, using demo data');
         return {
           success: true,
           data: {
             comments: this.generateDemoComments(),
             postData: {
               title: "Demo - Post Facebook",
-              content: "Ini adalah demo data karena terjadi error saat mengakses Apify API.",
+              content: "Menggunakan demo data karena API tidak tersedia.",
               author: "Demo User", 
               timestamp: new Date().toISOString(),
               likes: 150,
@@ -87,41 +79,12 @@ export class ApifyService {
         };
       }
 
-      const runData = await runResponse.json();
-      console.log('Run API Response:', runData);
-      
-      // Ambil data dari dataset
-      const datasetResponse = await fetch(`https://api.apify.com/v2/actor-tasks/${taskId}/run-sync-get-dataset-items?token=${apiKey}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (!datasetResponse.ok) {
-        console.warn('Dataset response not ok, using demo data');
-        return {
-          success: true,
-          data: {
-            comments: this.generateDemoComments(),
-            postData: {
-              title: "Demo - Post Facebook",
-              content: "Dataset tidak dapat diakses, menggunakan demo data.",
-              author: "Demo User",
-              timestamp: new Date().toISOString(),
-              likes: 150,
-              shares: 25
-            }
-          }
-        };
-      }
-
-      const datasetData = await datasetResponse.json();
-      console.log('Dataset Response:', datasetData);
+      const responseData = await response.json();
+      console.log('API Response:', responseData);
       
       // Parse data sebenarnya dari Apify jika tersedia
-      if (datasetData && Array.isArray(datasetData) && datasetData.length > 0) {
-        const apifyData = datasetData[0];
+      if (responseData && Array.isArray(responseData) && responseData.length > 0) {
+        const apifyData = responseData[0];
         const comments = this.parseApifyComments(apifyData);
         const postData = this.parseApifyPostData(apifyData);
         
