@@ -45,8 +45,15 @@ export class ApifyService {
     try {
       console.log('Memulai scraping komentar dari Apify untuk URL:', facebookUrl);
       
+      // Cek apakah ada API key tersimpan
+      const apiKey = this.getApiKey();
+      if (!apiKey) {
+        console.warn('Tidak ada API key Apify, menggunakan demo data');
+        return this.getDemoResponse();
+      }
+      
       // Menggunakan endpoint API Apify yang benar
-      const apiEndpoint = 'https://api.apify.com/v2/acts/apify/facebook-comments-scraper/run-sync-get-dataset-items?token=apify_api_SgkA4cqAEBu4qSegnCxUKkerpLqzPU1iouan';
+      const apiEndpoint = `https://api.apify.com/v2/acts/apify/facebook-comments-scraper/run-sync-get-dataset-items?token=${apiKey}`;
       
       const requestBody = {
         includeNestedComments: false,
@@ -72,9 +79,10 @@ export class ApifyService {
           body: JSON.stringify(requestBody)
         });
       } catch (corsError) {
-        console.warn('CORS error detected, API calls from browser to Apify are blocked by CORS policy');
-        console.warn('Untuk production, gunakan backend proxy atau serverless function');
-        throw new Error('CORS Error: Tidak dapat mengakses Apify API langsung dari browser. Gunakan backend proxy atau lihat demo data.');
+        console.warn('CORS error detected: Browser memblokir akses langsung ke Apify API');
+        console.warn('Menggunakan demo data sebagai fallback');
+        
+        return this.getDemoResponse();
       }
 
       console.log('Response status:', response.status);
@@ -265,6 +273,24 @@ export class ApifyService {
     ];
 
     return demoComments;
+  }
+
+  // Helper method untuk mengembalikan demo response
+  private static getDemoResponse(): ApifyResponse {
+    return {
+      success: true,
+      data: {
+        comments: this.generateDemoComments(),
+        postData: {
+          title: "Demo - Post Facebook",
+          content: "Data demo digunakan karena masalah CORS atau tidak ada API key.",
+          author: "Demo User",
+          timestamp: new Date().toISOString(),
+          likes: 150,
+          shares: 25
+        }
+      }
+    };
   }
 
   static analyzeComments(comments: ApifyComment[]): AnalysisResult[] {

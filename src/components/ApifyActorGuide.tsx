@@ -19,36 +19,61 @@ export const ApifyActorGuide = () => {
         <Alert>
           <Lightbulb className="h-4 w-4" />
           <AlertDescription>
-            Saat ini aplikasi menggunakan demo data karena actor ID <code>"facebook-scraper"</code> tidak ditemukan. 
-            Ikuti langkah-langkah di bawah untuk menggunakan data real.
+            Aplikasi sekarang menggunakan demo data karena masalah CORS atau tidak ada API key. 
+            CORS policy browser memblokir akses langsung ke Apify API dari frontend.
           </AlertDescription>
         </Alert>
 
         <div className="space-y-3">
-          <h4 className="font-semibold">Langkah-langkah setup:</h4>
+          <h4 className="font-semibold">Solusi untuk masalah CORS:</h4>
           
-          <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
-            <li>
-              Kunjungi{' '}
-              <Button variant="link" className="p-0 h-auto text-primary" asChild>
-                <a href="https://apify.com/store" target="_blank" rel="noopener noreferrer">
-                  Apify Store <ExternalLink className="h-3 w-3 ml-1 inline" />
-                </a>
-              </Button>
-            </li>
-            <li>Cari actor untuk Facebook scraping (contoh: "facebook-pages-scraper", "facebook-posts-scraper")</li>
-            <li>Salin actor ID dari URL (format: username/actor-name)</li>
-            <li>Update kode di <code>src/services/apifyService.ts</code> dengan actor ID yang benar</li>
-            <li>Sesuaikan parameter request sesuai dokumentasi actor</li>
-          </ol>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium text-foreground mb-2">🚀 Solusi Direkomendasikan: Backend Proxy</p>
+              <ul className="space-y-1">
+                <li>• Integrasikan dengan Supabase untuk backend yang aman</li>
+                <li>• Buat Edge Function untuk memanggil Apify API</li>
+                <li>• Frontend memanggil Edge Function, bukan langsung ke Apify</li>
+              </ul>
+            </div>
+            
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium text-foreground mb-2">⚡ Alternatif: Serverless Functions</p>
+              <ul className="space-y-1">
+                <li>• Deploy function di Vercel/Netlify</li>
+                <li>• Function berisi API key dan logic Apify</li>
+                <li>• Frontend memanggil serverless function</li>
+              </ul>
+            </div>
 
-          <div className="mt-4 p-3 bg-muted rounded-lg">
-            <p className="text-sm font-medium mb-2">Actor yang direkomendasikan:</p>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• <code>apify/facebook-pages-scraper</code> - Untuk scraping halaman Facebook</li>
-              <li>• <code>apify/facebook-posts-scraper</code> - Untuk scraping postingan spesifik</li>
-              <li>• <code>dtrungtin/facebook-comments-scraper</code> - Khusus untuk komentar</li>
-            </ul>
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium text-foreground mb-2">🔧 Development Only: Browser Extension</p>
+              <ul className="space-y-1">
+                <li>• Install "CORS Unblock" extension untuk testing</li>
+                <li>• Hanya untuk development, TIDAK untuk production</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-4 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <p className="text-sm font-medium mb-2">💡 Mengapa CORS terjadi?</p>
+            <p className="text-sm text-muted-foreground">
+              Browser memblokir request dari frontend ke API eksternal karena kebijakan keamanan. 
+              Apify API tidak menyertakan header CORS yang diperlukan untuk akses langsung dari browser.
+            </p>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <Button variant="default" asChild>
+              <a href="https://docs.lovable.dev/user-guides/supabase" target="_blank" rel="noopener noreferrer">
+                Setup Supabase Integration <ExternalLink className="h-4 w-4 ml-2" />
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href="https://apify.com/store" target="_blank" rel="noopener noreferrer">
+                Browse Apify Actors <ExternalLink className="h-4 w-4 ml-2" />
+              </a>
+            </Button>
           </div>
         </div>
       </CardContent>
