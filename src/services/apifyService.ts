@@ -61,13 +61,21 @@ export class ApifyService {
 
       console.log('Request body:', JSON.stringify(requestBody, null, 2));
       
-      const response = await fetch(apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+      // Coba dengan CORS mode normal terlebih dahulu
+      let response;
+      try {
+        response = await fetch(apiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } catch (corsError) {
+        console.warn('CORS error detected, API calls from browser to Apify are blocked by CORS policy');
+        console.warn('Untuk production, gunakan backend proxy atau serverless function');
+        throw new Error('CORS Error: Tidak dapat mengakses Apify API langsung dari browser. Gunakan backend proxy atau lihat demo data.');
+      }
 
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers));
