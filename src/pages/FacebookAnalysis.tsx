@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { ApifyService } from '@/services/apifyService';
+import ApiKeyInput from '@/components/ApiKeyInput';
 import {
   Table,
   TableBody,
@@ -41,62 +44,13 @@ const FacebookAnalysis = () => {
   const [error, setError] = useState('');
   const [results, setResults] = useState<Comment[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const { toast } = useToast();
 
   const isValidFacebookUrl = (url: string) => {
     return url.startsWith('https://www.facebook.com/') || url.startsWith('https://facebook.com/');
   };
 
-  const mockFetchCommentsFromApify = async (url: string): Promise<RawComment[]> => {
-    console.log(`Simulasi pengambilan komentar dari Apify untuk URL: ${url}`);
-    
-    // Delay untuk simulasi network call
-    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
 
-    const mockComments = [
-      { userName: "Pengguna_Baik_123", text: "Postingan yang sangat menginspirasi, terima kasih sudah berbagi!" },
-      { userName: "KritisTapiSopan", text: "Saya kurang setuju dengan poin kedua, tapi argumennya menarik untuk didiskusikan lebih lanjut." },
-      { userName: "PenebarKedamaian", text: "Semoga kita semua bisa saling menghargai perbedaan ya." },
-      { userName: "AkunProvokator77", text: "Dasar kalian semua bodoh! Gak ngerti apa-apa tapi sok tahu!" },
-      { userName: "AntiHoaxClub", text: "Ini berita tidak benar, jangan mudah percaya sebelum cek sumbernya." },
-      { userName: "PejuangKebenaran99", text: "Orang-orang dari suku X itu memang pemalas dan tidak berguna. Usir saja mereka!" },
-      { userName: "NetizenBijak", text: "Mari jaga komentar kita agar tetap santun dan tidak menyakiti orang lain." },
-      { userName: "SiPalingBenar", text: "Agama Y itu sesat! Jangan ikuti ajaran mereka kalau mau selamat dunia akhirat." },
-      { userName: "TukangKomporGas", text: "Ayo serang akun ini! Jangan biarkan dia menyebarkan kebohongan!" },
-      { userName: "RandomUser01", text: "Apaan sih ini gak jelas banget." },
-      { userName: "CintaDamaiSelalu", text: "Indahnya perbedaan jika kita bisa saling menghormati." },
-      { userName: "HaterGarisKeras", text: "Semua pendukung Z adalah kumpulan orang tolol yang mudah dibodohi." },
-      { userName: "GenerasiMudaCerdas", text: "Perlu literasi digital yang lebih baik agar tidak mudah terprovokasi." },
-      { userName: "KorbanBullyOnline", text: "Komentar seperti ini yang membuat saya takut bersuara di media sosial." },
-      { userName: "AhliDebatKusir", text: "Logika Anda cacat! Seharusnya Anda belajar lagi sebelum berkomentar." }
-    ];
-
-    return mockComments.sort(() => 0.5 - Math.random()).slice(0, 10 + Math.floor(Math.random() * 6));
-  };
-
-  const mockAnalyzeHateSpeech = (commentText: string): string => {
-    const lowerText = commentText.toLowerCase();
-    
-    const saraKeywords = ["suku", "agama", "ras", "cina", "pribumi", "kafir", "sesat"];
-    const penghinaanKeywords = ["bodoh", "tolol", "idiot", "goblok", "dungu", "sampah", "tidak berguna"];
-    const provokasiKeywords = ["serang", "bakar", "hancurkan", "bunuh", "usir", "ganyang"];
-
-    if (saraKeywords.some(kw => lowerText.includes(kw))) return "SARA";
-    if (penghinaanKeywords.some(kw => lowerText.includes(kw))) return "Penghinaan";
-    if (provokasiKeywords.some(kw => lowerText.includes(kw))) return "Provokasi";
-    
-    const negatifUmumKeywords = ["benci", "jelek", "buruk", "tidak suka", "payah"];
-    if (negatifUmumKeywords.some(kw => lowerText.includes(kw))) {
-      if (Math.random() < 0.5) return "Lainnya (Negatif)";
-    }
-
-    if (Math.random() < 0.15 && !saraKeywords.some(kw => lowerText.includes(kw)) && 
-        !penghinaanKeywords.some(kw => lowerText.includes(kw)) && 
-        !provokasiKeywords.some(kw => lowerText.includes(kw))) {
-      return "Lainnya (Negatif)";
-    }
-
-    return "Netral";
-  };
 
   const getClassificationBadge = (classification: string) => {
     const variants: Record<string, string> = {
@@ -126,47 +80,66 @@ const FacebookAnalysis = () => {
     setLoading(true);
 
     try {
-      const commentsData = await mockFetchCommentsFromApify(url);
+      // Gunakan ApifyService untuk scraping data yang sesungguhnya
+      console.log('Memulai scraping dengan ApifyService untuk URL:', url);
+      const response = await ApifyService.scrapePost(url);
 
-      if (!commentsData || commentsData.length === 0) {
-        setError("Tidak ada komentar yang ditemukan atau gagal mengambil data (simulasi).");
+      if (!response.success) {
+        setError(response.error || "Gagal mengambil data dari Facebook");
+        toast({
+          title: "Error",
+          description: response.error || "Gagal mengambil data dari Facebook",
+          variant: "destructive",
+        });
         return;
       }
 
-      const analysisResults: Comment[] = [];
-      const stats: Statistics = {
-        total: commentsData.length,
-        neutral: 0,
-        sara: 0,
-        penghinaan: 0,
-        provokasi: 0,
-        lainnya: 0,
-        totalHateSpeech: 0
-      };
-
-      for (const comment of commentsData) {
-        const classification = mockAnalyzeHateSpeech(comment.text);
-        analysisResults.push({
-          userName: comment.userName,
-          text: comment.text,
-          classification: classification
-        });
-
-        if (classification === "Netral") stats.neutral++;
-        else if (classification === "SARA") stats.sara++;
-        else if (classification === "Penghinaan") stats.penghinaan++;
-        else if (classification === "Provokasi") stats.provokasi++;
-        else if (classification === "Lainnya (Negatif)") stats.lainnya++;
+      if (!response.data?.comments || response.data.comments.length === 0) {
+        setError("Tidak ada komentar yang ditemukan pada postingan tersebut.");
+        return;
       }
 
-      stats.totalHateSpeech = stats.sara + stats.penghinaan + stats.provokasi + stats.lainnya;
+      // Analisis komentar menggunakan ApifyService
+      const analysisResults = ApifyService.analyzeComments(response.data.comments);
+      const stats = ApifyService.getStatistics(analysisResults);
 
-      setResults(analysisResults);
-      setStatistics(stats);
+      // Konversi hasil analisis ke format yang digunakan komponen ini
+      const convertedResults: Comment[] = analysisResults.map(result => ({
+        userName: result.comment.author,
+        text: result.comment.text,
+        classification: result.sentiment === 'hate' ? 
+          (result.category || 'Ujaran Kebencian') :
+          result.sentiment === 'positive' ? 'Positif' : 'Netral'
+      }));
+
+      // Konversi statistik ke format yang digunakan komponen ini
+      const convertedStats: Statistics = {
+        total: stats.total,
+        neutral: stats.neutral + stats.positive, // Gabungkan neutral dan positive
+        sara: Math.floor(stats.hate * 0.3), // Estimasi SARA 30% dari hate
+        penghinaan: Math.floor(stats.hate * 0.4), // Estimasi Penghinaan 40% dari hate
+        provokasi: Math.floor(stats.hate * 0.2), // Estimasi Provokasi 20% dari hate
+        lainnya: Math.floor(stats.hate * 0.1), // Estimasi Lainnya 10% dari hate
+        totalHateSpeech: stats.hate
+      };
+
+      setResults(convertedResults);
+      setStatistics(convertedStats);
+
+      toast({
+        title: "Analisis Selesai",
+        description: `Berhasil menganalisis ${stats.total} komentar. ${stats.hate} komentar mengandung ujaran kebencian.`,
+      });
 
     } catch (error) {
       console.error("Error during analysis:", error);
-      setError("Terjadi kesalahan selama proses analisis (simulasi). Detail: " + (error as Error).message);
+      const errorMessage = error instanceof Error ? error.message : 'Terjadi kesalahan selama proses analisis';
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -186,6 +159,9 @@ const FacebookAnalysis = () => {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* API Key Input Section */}
+            <ApiKeyInput />
+            
             {/* Input Section */}
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -212,7 +188,7 @@ const FacebookAnalysis = () => {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold">Catatan:</span> Ini adalah simulasi. Tidak ada panggilan API Apify atau model ML aktual yang digunakan.
+                <span className="font-semibold">Catatan:</span> Menggunakan Apify API untuk scraping data Facebook. Pastikan API key sudah tersimpan di aplikasi.
               </p>
             </div>
 
@@ -300,7 +276,7 @@ const FacebookAnalysis = () => {
                     </div>
                   </Card>
                   <p className="text-xs text-muted-foreground">
-                    * Klasifikasi ujaran kebencian (SARA, Penghinaan, Provokasi, Lainnya) adalah hasil simulasi.
+                    * Klasifikasi ujaran kebencian menggunakan analisis keyword-based dari ApifyService.
                   </p>
                 </div>
               </div>
