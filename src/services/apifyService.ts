@@ -53,7 +53,7 @@ export class ApifyService {
       }
       
       // Menggunakan endpoint API Apify yang benar
-      const apiEndpoint = `https://api.apify.com/v2/acts/apify/facebook-comments-scraper/run-sync-get-dataset-items?token=${apiKey}`;
+      const apiEndpoint = `https://api.apify.com/v2/acts/apify~facebook-comments-scraper/run-sync-get-dataset-items?token=${apiKey}`;
       
       const requestBody = {
         includeNestedComments: false,
