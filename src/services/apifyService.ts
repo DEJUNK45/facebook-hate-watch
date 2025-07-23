@@ -46,11 +46,11 @@ export class ApifyService {
       console.log('Memulai scraping komentar dari Apify untuk URL:', facebookUrl);
       
       // Menggunakan endpoint API Apify yang benar
-      const apiEndpoint = 'https://api.apify.com/v2/acts/apify~facebook-comments-scraper/run-sync-get-dataset-items?token=apify_api_SgkA4cqAEBu4qSegnCxUKkerpLqzPU1iouan';
+      const apiEndpoint = 'https://api.apify.com/v2/acts/apify/facebook-comments-scraper/run-sync-get-dataset-items?token=apify_api_SgkA4cqAEBu4qSegnCxUKkerpLqzPU1iouan';
       
       const requestBody = {
         includeNestedComments: false,
-        resultsLimit: 100,
+        resultsLimit: 550,
         startUrls: [
           {
             url: facebookUrl,
