@@ -105,9 +105,9 @@ export class ApifyService {
       if (responseData && Array.isArray(responseData) && responseData.length > 0) {
         console.log('Processing Apify data...');
         
-        // Ambil semua komentar dari response
+        // Ambil semua komentar dari response - setiap item adalah komentar
         const allComments: ApifyComment[] = [];
-        const postInfo = {
+        let postInfo = {
           title: "Facebook Post",
           content: "",
           author: "Facebook User",
@@ -117,29 +117,28 @@ export class ApifyService {
         };
 
         responseData.forEach((item, index) => {
-          console.log(`Processing item ${index}:`, item);
+          console.log(`Processing comment item ${index}:`, item);
           
-          // Ekstrak komentar dari setiap item
-          if (item.comments && Array.isArray(item.comments)) {
-            item.comments.forEach((comment: any, commentIndex: number) => {
-              allComments.push({
-                id: comment.id || `comment_${index}_${commentIndex}`,
-                author: comment.author || comment.authorName || `User ${commentIndex + 1}`,
-                text: comment.text || comment.content || '',
-                timestamp: comment.timestamp || comment.createdAt || new Date().toISOString(),
-                likes: comment.likes || comment.likesCount || 0,
-                replies: comment.replies || comment.repliesCount || 0
-              });
-            });
-          }
+          // Setiap item dalam array adalah komentar
+          allComments.push({
+            id: item.id || `comment_${index}`,
+            author: item.profileName || item.author || `User ${index + 1}`,
+            text: item.text || '',
+            timestamp: item.date || item.timestamp || new Date().toISOString(),
+            likes: parseInt(item.likesCount) || 0,
+            replies: item.commentsCount || 0
+          });
           
-          // Ekstrak info post jika ada
-          if (item.post) {
-            postInfo.title = item.post.text?.substring(0, 100) || postInfo.title;
-            postInfo.content = item.post.text || postInfo.content;
-            postInfo.author = item.post.author || postInfo.author;
-            postInfo.likes = item.post.likes || postInfo.likes;
-            postInfo.shares = item.post.shares || postInfo.shares;
+          // Ambil info post dari item pertama (semua item memiliki postTitle yang sama)
+          if (index === 0 && item.postTitle) {
+            postInfo = {
+              title: item.postTitle.substring(0, 100) || "Facebook Post",
+              content: item.postTitle || "Post content",
+              author: "Facebook Post Author",
+              timestamp: item.date || new Date().toISOString(),
+              likes: 0,
+              shares: 0
+            };
           }
         });
 
