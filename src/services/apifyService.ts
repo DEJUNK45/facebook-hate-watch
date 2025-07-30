@@ -57,7 +57,7 @@ export class ApifyService {
       
       const requestBody = {
         includeNestedComments: false,
-        resultsLimit: 550,
+        resultsLimit: 10,
         startUrls: [
           {
             url: facebookUrl,
