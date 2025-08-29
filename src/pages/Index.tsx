@@ -4,6 +4,7 @@ import { ApiKeyForm } from '@/components/ApiKeyForm';
 import { AnalysisForm } from '@/components/AnalysisForm';
 import { StatisticsCards } from '@/components/StatisticsCards';
 import { AnalysisChart } from '@/components/AnalysisChart';
+import { SentimentChart } from '@/components/SentimentChart';
 import { CommentsList } from '@/components/CommentsList';
 import { PostInfo } from '@/components/PostInfo';
 import { ApifyActorGuide } from '@/components/ApifyActorGuide';
@@ -108,7 +109,10 @@ const Index = () => {
             <StatisticsCards statistics={analysisData.statistics} />
             
             {/* Charts */}
-            <AnalysisChart statistics={analysisData.statistics} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <AnalysisChart statistics={analysisData.statistics} />
+              <SentimentChart statistics={analysisData.statistics} />
+            </div>
             
             {/* Comments List */}
             <CommentsList analysisResults={analysisData.analysisResults} />

@@ -13,6 +13,7 @@ interface AnalysisFormProps {
 
 export const AnalysisForm = ({ onAnalysisComplete }: AnalysisFormProps) => {
   const [url, setUrl] = useState('');
+  const [resultsLimit, setResultsLimit] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -38,7 +39,7 @@ export const AnalysisForm = ({ onAnalysisComplete }: AnalysisFormProps) => {
 
     setIsLoading(true);
     try {
-      const response = await ApifyService.scrapePost(url);
+      const response = await ApifyService.scrapePost(url, resultsLimit);
       
       if (!response.success) {
         throw new Error(response.error || 'Gagal mengambil data');
@@ -96,6 +97,23 @@ export const AnalysisForm = ({ onAnalysisComplete }: AnalysisFormProps) => {
               placeholder="https://www.facebook.com/..."
               className="transition-all duration-200 focus:shadow-glow"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="resultsLimit" className="text-sm font-medium flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Jumlah Komentar Maksimal
+            </Label>
+            <Input
+              id="resultsLimit"
+              type="number"
+              value={resultsLimit}
+              onChange={(e) => setResultsLimit(Math.max(1, parseInt(e.target.value) || 10))}
+              placeholder="10"
+              min="1"
+              max="500"
+              className="transition-all duration-200 focus:shadow-glow"
             />
           </div>
 

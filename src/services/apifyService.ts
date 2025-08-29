@@ -41,7 +41,7 @@ export class ApifyService {
     return localStorage.getItem(this.API_KEY_STORAGE_KEY);
   }
 
-  static async scrapePost(facebookUrl: string): Promise<ApifyResponse> {
+  static async scrapePost(facebookUrl: string, resultsLimit: number = 10): Promise<ApifyResponse> {
     try {
       console.log('Memulai scraping komentar dari Apify untuk URL:', facebookUrl);
       
@@ -57,7 +57,7 @@ export class ApifyService {
       
       const requestBody = {
         includeNestedComments: false,
-        resultsLimit: 10,
+        resultsLimit: resultsLimit,
         startUrls: [
           {
             url: facebookUrl,
