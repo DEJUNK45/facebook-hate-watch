@@ -14,6 +14,7 @@ import ApiKeyInput from '@/components/ApiKeyInput';
 import TopicClustering from '@/components/TopicClustering';
 import EntityTargets from '@/components/EntityTargets';
 import EmojiDisplay from '@/components/EmojiDisplay';
+import { SentimentChart } from '@/components/SentimentChart';
 import {
   Table,
   TableBody,
@@ -53,6 +54,7 @@ interface AnalysisData {
 
 const FacebookAnalysis = () => {
   const [url, setUrl] = useState('');
+  const [resultsLimit, setResultsLimit] = useState(50);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
@@ -94,7 +96,7 @@ const FacebookAnalysis = () => {
 
     try {
       console.log('Memulai scraping dengan ApifyService untuk URL:', url);
-      const response = await ApifyService.scrapePost(url);
+      const response = await ApifyService.scrapePost(url, resultsLimit);
 
       if (!response.success) {
         setError(response.error || "Gagal mengambil data dari Facebook");
@@ -252,6 +254,23 @@ const FacebookAnalysis = () => {
                   )}
                 </Button>
               </div>
+              
+              {/* Results Limit Input */}
+              <div className="flex items-center gap-4">
+                <Label htmlFor="resultsLimit" className="whitespace-nowrap text-sm font-medium">
+                  Jumlah Komentar Maksimal:
+                </Label>
+                <Input
+                  id="resultsLimit"
+                  type="number"
+                  value={resultsLimit}
+                  onChange={(e) => setResultsLimit(Math.max(1, parseInt(e.target.value) || 50))}
+                  min="1"
+                  max="500"
+                  className="w-32"
+                />
+              </div>
+              
               <p className="text-xs text-muted-foreground">
                 <span className="font-semibold">Catatan:</span> {useAdvancedAnalysis ? 'Menggunakan IndoBERT dan LDA untuk analisis mendalam.' : 'Menggunakan analisis keyword-based sederhana.'}
               </p>
@@ -326,6 +345,19 @@ const FacebookAnalysis = () => {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Visual Charts */}
+                <SentimentChart 
+                  statistics={{
+                    total: analysisData.statistics.total,
+                    hate: analysisData.statistics.totalHateSpeech,
+                    neutral: analysisData.statistics.neutral,
+                    positive: 0, // We don't have positive stats in current structure
+                    hatePercentage: Math.round((analysisData.statistics.totalHateSpeech / analysisData.statistics.total) * 100),
+                    neutralPercentage: Math.round((analysisData.statistics.neutral / analysisData.statistics.total) * 100),
+                    positivePercentage: 0
+                  }}
+                />
 
                 {/* Topic Clustering */}
                 <TopicClustering clusters={analysisData.topics} />
