@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ApifyService } from '@/services/apifyService';
@@ -44,6 +46,7 @@ const FacebookAnalysis = () => {
   const [error, setError] = useState('');
   const [results, setResults] = useState<Comment[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [showDetailedView, setShowDetailedView] = useState(false);
   const { toast } = useToast();
 
   const isValidFacebookUrl = (url: string) => {
@@ -212,7 +215,19 @@ const FacebookAnalysis = () => {
             {/* Results Section */}
             {statistics && results.length > 0 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-semibold">Hasil Analisis</h2>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">Hasil Analisis</h2>
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="detailed-view" className="text-sm font-medium">
+                      Tampilkan Detail
+                    </Label>
+                    <Switch
+                      id="detailed-view"
+                      checked={showDetailedView}
+                      onCheckedChange={setShowDetailedView}
+                    />
+                  </div>
+                </div>
 
                 {/* Statistics Grid */}
                 <Card className="bg-gradient-primary/10">
@@ -251,34 +266,36 @@ const FacebookAnalysis = () => {
                 </Card>
 
                 {/* Comments Table */}
-                <div className="space-y-3">
-                  <h3 className="text-xl font-semibold">Detail Komentar:</h3>
-                  <Card>
-                    <div className="max-h-96 overflow-y-auto">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-background">
-                          <TableRow>
-                            <TableHead>Akun</TableHead>
-                            <TableHead>Komentar</TableHead>
-                            <TableHead>Klasifikasi</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {results.map((result, index) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-medium">{result.userName}</TableCell>
-                              <TableCell className="max-w-md">{result.text}</TableCell>
-                              <TableCell>{getClassificationBadge(result.classification)}</TableCell>
+                {showDetailedView && (
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-semibold">Detail Komentar:</h3>
+                    <Card>
+                      <div className="max-h-96 overflow-y-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-background">
+                            <TableRow>
+                              <TableHead>Akun</TableHead>
+                              <TableHead>Komentar</TableHead>
+                              <TableHead>Klasifikasi</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </Card>
-                  <p className="text-xs text-muted-foreground">
-                    * Klasifikasi ujaran kebencian menggunakan analisis keyword-based dari ApifyService.
-                  </p>
-                </div>
+                          </TableHeader>
+                          <TableBody>
+                            {results.map((result, index) => (
+                              <TableRow key={index}>
+                                <TableCell className="font-medium">{result.userName}</TableCell>
+                                <TableCell className="max-w-md">{result.text}</TableCell>
+                                <TableCell>{getClassificationBadge(result.classification)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </Card>
+                    <p className="text-xs text-muted-foreground">
+                      * Klasifikasi ujaran kebencian menggunakan analisis keyword-based dari ApifyService.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
