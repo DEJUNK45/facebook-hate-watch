@@ -9,7 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ApifyService } from '@/services/apifyService';
+import { bertService, TopicCluster, EntityTarget } from '@/services/bertService';
 import ApiKeyInput from '@/components/ApiKeyInput';
+import TopicClustering from '@/components/TopicClustering';
+import EntityTargets from '@/components/EntityTargets';
+import EmojiDisplay from '@/components/EmojiDisplay';
 import {
   Table,
   TableBody,
@@ -40,13 +44,20 @@ interface Statistics {
   totalHateSpeech: number;
 }
 
+interface AnalysisData {
+  statistics: Statistics;
+  results: Comment[];
+  topics: TopicCluster[];
+  entities: EntityTarget[];
+}
+
 const FacebookAnalysis = () => {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [results, setResults] = useState<Comment[]>([]);
-  const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
+  const [useAdvancedAnalysis, setUseAdvancedAnalysis] = useState(true);
   const { toast } = useToast();
 
   const isValidFacebookUrl = (url: string) => {
@@ -78,12 +89,10 @@ const FacebookAnalysis = () => {
     }
 
     setError('');
-    setResults([]);
-    setStatistics(null);
+    setAnalysisData(null);
     setLoading(true);
 
     try {
-      // Gunakan ApifyService untuk scraping data yang sesungguhnya
       console.log('Memulai scraping dengan ApifyService untuk URL:', url);
       const response = await ApifyService.scrapePost(url);
 
@@ -102,36 +111,72 @@ const FacebookAnalysis = () => {
         return;
       }
 
-      // Analisis komentar menggunakan ApifyService
-      const analysisResults = ApifyService.analyzeComments(response.data.comments);
-      const stats = ApifyService.getStatistics(analysisResults);
+      const comments = response.data.comments.map(c => c.text);
 
-      // Konversi hasil analisis ke format yang digunakan komponen ini
-      const convertedResults: Comment[] = analysisResults.map(result => ({
-        userName: result.comment.author,
-        text: result.comment.text,
-        classification: result.sentiment === 'hate' ? 
-          (result.category || 'Ujaran Kebencian') :
-          result.sentiment === 'positive' ? 'Positif' : 'Netral'
+      let analysisResults;
+      let stats;
+
+      if (useAdvancedAnalysis) {
+        // Gunakan IndoBERT untuk analisis yang lebih akurat
+        console.log('Menggunakan IndoBERT untuk analisis sentimen...');
+        analysisResults = await bertService.analyzeHateSpeech(comments);
+        
+        // Konversi hasil BERT ke format yang diharapkan
+        const bertResults = analysisResults.map((result, index) => ({
+          comment: response.data!.comments[index],
+          sentiment: result.sentiment,
+          category: result.category,
+          confidence: result.confidence
+        }));
+        
+        stats = ApifyService.getStatistics(bertResults);
+      } else {
+        // Gunakan analisis keyword-based biasa
+        const basicResults = ApifyService.analyzeComments(response.data.comments);
+        stats = ApifyService.getStatistics(basicResults);
+        analysisResults = basicResults.map(r => ({
+          text: r.comment.text,
+          sentiment: r.sentiment,
+          confidence: r.confidence || 0.5,
+          category: r.category
+        }));
+      }
+
+      // Analisis topik dengan LDA
+      const topics = bertService.performLDATopicClustering(comments);
+      
+      // Ekstraksi entitas target
+      const entities = bertService.extractEntityTargets(comments);
+
+      // Konversi hasil untuk tampilan
+      const convertedResults: Comment[] = response.data.comments.map((comment, index) => ({
+        userName: comment.author,
+        text: comment.text,
+        classification: analysisResults[index]?.sentiment === 'hate' ? 
+          (analysisResults[index]?.category || 'Ujaran Kebencian') :
+          analysisResults[index]?.sentiment === 'positive' ? 'Positif' : 'Netral'
       }));
 
-      // Konversi statistik ke format yang digunakan komponen ini
       const convertedStats: Statistics = {
         total: stats.total,
-        neutral: stats.neutral + stats.positive, // Gabungkan neutral dan positive
-        sara: Math.floor(stats.hate * 0.3), // Estimasi SARA 30% dari hate
-        penghinaan: Math.floor(stats.hate * 0.4), // Estimasi Penghinaan 40% dari hate
-        provokasi: Math.floor(stats.hate * 0.2), // Estimasi Provokasi 20% dari hate
-        lainnya: Math.floor(stats.hate * 0.1), // Estimasi Lainnya 10% dari hate
+        neutral: stats.neutral + stats.positive,
+        sara: Math.floor(stats.hate * 0.3),
+        penghinaan: Math.floor(stats.hate * 0.4),
+        provokasi: Math.floor(stats.hate * 0.2),
+        lainnya: Math.floor(stats.hate * 0.1),
         totalHateSpeech: stats.hate
       };
 
-      setResults(convertedResults);
-      setStatistics(convertedStats);
+      setAnalysisData({
+        statistics: convertedStats,
+        results: convertedResults,
+        topics,
+        entities
+      });
 
       toast({
         title: "Analisis Selesai",
-        description: `Berhasil menganalisis ${stats.total} komentar. ${stats.hate} komentar mengandung ujaran kebencian.`,
+        description: `Berhasil menganalisis ${stats.total} komentar dengan ${topics.length} topik dan ${entities.length} entitas terdeteksi.`,
       });
 
     } catch (error) {
@@ -165,6 +210,23 @@ const FacebookAnalysis = () => {
             {/* API Key Input Section */}
             <ApiKeyInput />
             
+            {/* Analysis Settings */}
+            <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg">
+              <div>
+                <Label htmlFor="advanced-analysis" className="text-sm font-medium">
+                  Gunakan IndoBERT untuk Analisis Lanjutan
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Analisis lebih akurat menggunakan AI model untuk bahasa Indonesia
+                </p>
+              </div>
+              <Switch
+                id="advanced-analysis"
+                checked={useAdvancedAnalysis}
+                onCheckedChange={setUseAdvancedAnalysis}
+              />
+            </div>
+
             {/* Input Section */}
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
@@ -191,7 +253,7 @@ const FacebookAnalysis = () => {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold">Catatan:</span> Menggunakan Apify API untuk scraping data Facebook. Pastikan API key sudah tersimpan di aplikasi.
+                <span className="font-semibold">Catatan:</span> {useAdvancedAnalysis ? 'Menggunakan IndoBERT dan LDA untuk analisis mendalam.' : 'Menggunakan analisis keyword-based sederhana.'}
               </p>
             </div>
 
@@ -213,7 +275,7 @@ const FacebookAnalysis = () => {
             )}
 
             {/* Results Section */}
-            {statistics && results.length > 0 && (
+            {analysisData && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Hasil Analisis</h2>
@@ -235,35 +297,41 @@ const FacebookAnalysis = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Total Komentar</p>
-                        <p className="text-2xl font-bold text-primary">{statistics.total}</p>
+                        <p className="text-2xl font-bold text-primary">{analysisData.statistics.total}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Netral</p>
-                        <p className="text-2xl font-bold text-green-600">{statistics.neutral}</p>
+                        <p className="text-2xl font-bold text-green-600">{analysisData.statistics.neutral}</p>
                       </div>
                       <div>
                         <p className="text-sm text-red-600">Ujaran Kebencian (Total)</p>
-                        <p className="text-2xl font-bold text-red-700">{statistics.totalHateSpeech}</p>
+                        <p className="text-2xl font-bold text-red-700">{analysisData.statistics.totalHateSpeech}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">SARA</p>
-                        <p className="text-xl font-bold text-red-500">{statistics.sara}</p>
+                        <p className="text-xl font-bold text-red-500">{analysisData.statistics.sara}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Penghinaan</p>
-                        <p className="text-xl font-bold text-red-500">{statistics.penghinaan}</p>
+                        <p className="text-xl font-bold text-red-500">{analysisData.statistics.penghinaan}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Provokasi</p>
-                        <p className="text-xl font-bold text-red-500">{statistics.provokasi}</p>
+                        <p className="text-xl font-bold text-red-500">{analysisData.statistics.provokasi}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Lainnya (Negatif)</p>
-                        <p className="text-xl font-bold text-orange-500">{statistics.lainnya}</p>
+                        <p className="text-xl font-bold text-orange-500">{analysisData.statistics.lainnya}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Topic Clustering */}
+                <TopicClustering clusters={analysisData.topics} />
+
+                {/* Entity Targets */}
+                <EntityTargets entities={analysisData.entities} />
 
                 {/* Comments Table */}
                 {showDetailedView && (
@@ -280,10 +348,12 @@ const FacebookAnalysis = () => {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {results.map((result, index) => (
+                            {analysisData.results.map((result, index) => (
                               <TableRow key={index}>
                                 <TableCell className="font-medium">{result.userName}</TableCell>
-                                <TableCell className="max-w-md">{result.text}</TableCell>
+                                <TableCell className="max-w-md">
+                                  <EmojiDisplay text={result.text} />
+                                </TableCell>
                                 <TableCell>{getClassificationBadge(result.classification)}</TableCell>
                               </TableRow>
                             ))}
@@ -292,7 +362,7 @@ const FacebookAnalysis = () => {
                       </div>
                     </Card>
                     <p className="text-xs text-muted-foreground">
-                      * Klasifikasi ujaran kebencian menggunakan analisis keyword-based dari ApifyService.
+                      * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'}.
                     </p>
                   </div>
                 )}
