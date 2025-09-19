@@ -14,6 +14,8 @@ import ApiKeyInput from '@/components/ApiKeyInput';
 import TopicClustering from '@/components/TopicClustering';
 import EntityTargets from '@/components/EntityTargets';
 import EmojiDisplay from '@/components/EmojiDisplay';
+import CommentDisplay from '@/components/CommentDisplay';
+import { SentimentChart } from '@/components/SentimentChart';
 import {
   Table,
   TableBody,
@@ -27,11 +29,23 @@ interface Comment {
   userName: string;
   text: string;
   classification: string;
+  imageUrl?: string;
+  attachments?: Array<{
+    type: 'image' | 'video' | 'link';
+    url: string;
+    description?: string;
+  }>;
 }
 
 interface RawComment {
   userName: string;
   text: string;
+  imageUrl?: string;
+  attachments?: Array<{
+    type: 'image' | 'video' | 'link';
+    url: string;
+    description?: string;
+  }>;
 }
 
 interface Statistics {
@@ -58,6 +72,8 @@ const FacebookAnalysis = () => {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
   const [useAdvancedAnalysis, setUseAdvancedAnalysis] = useState(true);
+  const [resultsLimit, setResultsLimit] = useState(50);
+  const [showImages, setShowImages] = useState(true);
   const { toast } = useToast();
 
   const isValidFacebookUrl = (url: string) => {
@@ -94,7 +110,7 @@ const FacebookAnalysis = () => {
 
     try {
       console.log('Memulai scraping dengan ApifyService untuk URL:', url);
-      const response = await ApifyService.scrapePost(url);
+      const response = await ApifyService.scrapePost(url, resultsLimit);
 
       if (!response.success) {
         setError(response.error || "Gagal mengambil data dari Facebook");
@@ -154,7 +170,9 @@ const FacebookAnalysis = () => {
         text: comment.text,
         classification: analysisResults[index]?.sentiment === 'hate' ? 
           (analysisResults[index]?.category || 'Ujaran Kebencian') :
-          analysisResults[index]?.sentiment === 'positive' ? 'Positif' : 'Netral'
+          analysisResults[index]?.sentiment === 'positive' ? 'Positif' : 'Netral',
+        imageUrl: comment.imageUrl,
+        attachments: comment.attachments
       }));
 
       const convertedStats: Statistics = {
@@ -211,20 +229,58 @@ const FacebookAnalysis = () => {
             <ApiKeyInput />
             
             {/* Analysis Settings */}
-            <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg">
-              <div>
-                <Label htmlFor="advanced-analysis" className="text-sm font-medium">
-                  Gunakan IndoBERT untuk Analisis Lanjutan
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Analisis lebih akurat menggunakan AI model untuk bahasa Indonesia
-                </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg">
+                <div>
+                  <Label htmlFor="advanced-analysis" className="text-sm font-medium">
+                    Gunakan IndoBERT dan LDA untuk Analisis Lanjutan
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Analisis lebih akurat menggunakan AI model dan topic modeling untuk bahasa Indonesia
+                  </p>
+                </div>
+                <Switch
+                  id="advanced-analysis"
+                  checked={useAdvancedAnalysis}
+                  onCheckedChange={setUseAdvancedAnalysis}
+                />
               </div>
-              <Switch
-                id="advanced-analysis"
-                checked={useAdvancedAnalysis}
-                onCheckedChange={setUseAdvancedAnalysis}
-              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="results-limit" className="text-sm font-medium">
+                    Jumlah Komentar yang Dianalisis
+                  </Label>
+                  <Input
+                    id="results-limit"
+                    type="number"
+                    min="10"
+                    max="200"
+                    value={resultsLimit}
+                    onChange={(e) => setResultsLimit(parseInt(e.target.value) || 50)}
+                    placeholder="50"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Maksimal 200 komentar per analisis
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg">
+                  <div>
+                    <Label htmlFor="show-images" className="text-sm font-medium">
+                      Tampilkan Gambar dalam Komentar
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Menampilkan gambar dan media yang dilampirkan
+                    </p>
+                  </div>
+                  <Switch
+                    id="show-images"
+                    checked={showImages}
+                    onCheckedChange={setShowImages}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Input Section */}
@@ -253,7 +309,7 @@ const FacebookAnalysis = () => {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold">Catatan:</span> {useAdvancedAnalysis ? 'Menggunakan IndoBERT dan LDA untuk analisis mendalam.' : 'Menggunakan analisis keyword-based sederhana.'}
+                <span className="font-semibold">Catatan:</span> {useAdvancedAnalysis ? `Menggunakan IndoBERT dan LDA untuk analisis ${resultsLimit} komentar.` : `Menggunakan analisis keyword-based untuk ${resultsLimit} komentar.`}
               </p>
             </div>
 
@@ -327,42 +383,91 @@ const FacebookAnalysis = () => {
                   </CardContent>
                 </Card>
 
+                {/* Sentiment Visualization */}
+                <SentimentChart 
+                  statistics={{
+                    total: analysisData.statistics.total,
+                    hate: analysisData.statistics.totalHateSpeech,
+                    neutral: analysisData.statistics.neutral,
+                    positive: Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech),
+                    hatePercentage: Math.round((analysisData.statistics.totalHateSpeech / analysisData.statistics.total) * 100),
+                    neutralPercentage: Math.round((analysisData.statistics.neutral / analysisData.statistics.total) * 100),
+                    positivePercentage: Math.round((Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech) / analysisData.statistics.total) * 100)
+                  }}
+                />
+
                 {/* Topic Clustering */}
                 <TopicClustering clusters={analysisData.topics} />
 
                 {/* Entity Targets */}
                 <EntityTargets entities={analysisData.entities} />
 
-                {/* Comments Table */}
+                {/* Comments Display */}
                 {showDetailedView && (
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-semibold">Detail Komentar:</h3>
-                    <Card>
-                      <div className="max-h-96 overflow-y-auto">
-                        <Table>
-                          <TableHeader className="sticky top-0 bg-background">
-                            <TableRow>
-                              <TableHead>Akun</TableHead>
-                              <TableHead>Komentar</TableHead>
-                              <TableHead>Klasifikasi</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {analysisData.results.map((result, index) => (
-                              <TableRow key={index}>
-                                <TableCell className="font-medium">{result.userName}</TableCell>
-                                <TableCell className="max-w-md">
-                                  <EmojiDisplay text={result.text} />
-                                </TableCell>
-                                <TableCell>{getClassificationBadge(result.classification)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-semibold">Detail Komentar:</h3>
+                      <Badge variant="outline">
+                        {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
+                      </Badge>
+                    </div>
+
+                    {showImages ? (
+                      <div className="space-y-4">
+                        {analysisData.results.map((result, index) => {
+                          const comment = {
+                            id: `comment_${index}`,
+                            author: result.userName,
+                            text: result.text,
+                            timestamp: new Date().toISOString(),
+                            imageUrl: result.imageUrl,
+                            attachments: result.attachments
+                          };
+                          
+                          return (
+                            <CommentDisplay
+                              key={index}
+                              comment={comment}
+                              classification={result.classification}
+                              getClassificationBadge={getClassificationBadge}
+                            />
+                          );
+                        })}
                       </div>
-                    </Card>
+                    ) : (
+                      <Card>
+                        <div className="max-h-96 overflow-y-auto">
+                          <Table>
+                            <TableHeader className="sticky top-0 bg-background">
+                              <TableRow>
+                                <TableHead>Akun</TableHead>
+                                <TableHead>Komentar</TableHead>
+                                <TableHead>Klasifikasi</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {analysisData.results.map((result, index) => (
+                                <TableRow key={index}>
+                                  <TableCell className="font-medium">{result.userName}</TableCell>
+                                  <TableCell className="max-w-md">
+                                    <EmojiDisplay text={result.text} />
+                                    {(result.imageUrl || (result.attachments && result.attachments.length > 0)) && (
+                                      <Badge variant="secondary" className="ml-2 text-xs">
+                                        📷 Media
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{getClassificationBadge(result.classification)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </Card>
+                    )}
+                    
                     <p className="text-xs text-muted-foreground">
-                      * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'}.
+                      * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'} untuk mendeteksi ujaran kebencian dan topik.
                     </p>
                   </div>
                 )}

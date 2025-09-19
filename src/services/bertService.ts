@@ -108,7 +108,114 @@ class BertService {
   }
 
   performLDATopicClustering(comments: string[]): TopicCluster[] {
-    // Simple keyword-based clustering (simplified LDA approach)
+    if (comments.length < 3) {
+      return this.keywordBasedClustering(comments);
+    }
+
+    try {
+      // Simplified LDA-inspired approach using term frequency and co-occurrence
+      const preprocessedComments = comments.map(comment => 
+        this.preprocessText(comment)
+      ).filter(doc => doc.length > 0);
+
+      if (preprocessedComments.length < 3) {
+        return this.keywordBasedClustering(comments);
+      }
+
+      // Extract all unique words and their frequencies
+      const wordFreq = new Map<string, number>();
+      const documentWords = preprocessedComments.map(comment => {
+        const words = comment.split(' ').filter(word => word.length > 2);
+        words.forEach(word => {
+          wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
+        });
+        return words;
+      });
+
+      // Get most frequent words as potential topic keywords
+      const topWords = Array.from(wordFreq.entries())
+        .filter(([word, freq]) => freq > 1 && word.length > 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .map(([word]) => word);
+
+      // Create topic clusters based on word co-occurrence
+      const numTopics = Math.min(5, Math.max(2, Math.floor(comments.length / 8)));
+      const clusters: TopicCluster[] = [];
+
+      for (let i = 0; i < numTopics; i++) {
+        const startIdx = i * Math.floor(topWords.length / numTopics);
+        const endIdx = Math.min(startIdx + Math.floor(topWords.length / numTopics), topWords.length);
+        const topicWords = topWords.slice(startIdx, endIdx);
+
+        if (topicWords.length === 0) continue;
+
+        // Find documents that contain these topic words
+        const relatedComments = comments.filter(comment => {
+          const lowerComment = comment.toLowerCase();
+          return topicWords.some(word => lowerComment.includes(word));
+        });
+
+        if (relatedComments.length > 0) {
+          const topicLabel = this.inferTopicLabel(topicWords, `Topik ${i + 1}`);
+          
+          clusters.push({
+            id: i,
+            topic: topicLabel,
+            keywords: topicWords.slice(0, 5),
+            comments: relatedComments.slice(0, 3),
+            count: relatedComments.length
+          });
+        }
+      }
+
+      // If no clusters found, fallback to keyword-based
+      return clusters.length > 0 ? clusters : this.keywordBasedClustering(comments);
+
+    } catch (error) {
+      console.warn('LDA clustering failed, falling back to keyword-based:', error);
+      return this.keywordBasedClustering(comments);
+    }
+  }
+
+  private preprocessText(text: string): string {
+    // Indonesian stopwords
+    const stopwords = new Set([
+      'yang', 'dan', 'di', 'ke', 'dari', 'dalam', 'untuk', 'pada', 'dengan', 'adalah', 'ini', 'itu',
+      'tidak', 'akan', 'ada', 'atau', 'juga', 'oleh', 'sudah', 'dapat', 'bila', 'jika', 'karena',
+      'saya', 'kamu', 'dia', 'kita', 'mereka', 'kami', 'nya', 'mu', 'ku', 'an', 'kan', 'lah'
+    ]);
+
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Remove punctuation
+      .replace(/\d+/g, '') // Remove numbers
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopwords.has(word))
+      .join(' ');
+  }
+
+  private inferTopicLabel(keywords: string[], defaultLabel: string): string {
+    const topicPatterns = {
+      'Politik': ['jokowi', 'presiden', 'pemerintah', 'politik', 'pemilu', 'partai', 'menteri', 'dpr'],
+      'Ekonomi': ['ekonomi', 'harga', 'inflasi', 'bbm', 'subsidi', 'pajak', 'rupiah', 'bisnis'],
+      'Sosial': ['masyarakat', 'rakyat', 'sosial', 'budaya', 'tradisi', 'keluarga', 'komunitas'],
+      'Agama': ['agama', 'islam', 'kristen', 'hindu', 'budha', 'ibadah', 'rohani', 'spiritual'],
+      'Pendidikan': ['sekolah', 'universitas', 'pendidikan', 'belajar', 'guru', 'mahasiswa', 'kuliah'],
+      'Teknologi': ['teknologi', 'digital', 'online', 'internet', 'aplikasi', 'website', 'gadget'],
+      'Kesehatan': ['kesehatan', 'dokter', 'rumah', 'sakit', 'covid', 'vaksin', 'obat', 'virus']
+    };
+
+    for (const [topic, patterns] of Object.entries(topicPatterns)) {
+      if (keywords.some(keyword => patterns.some(pattern => keyword.includes(pattern)))) {
+        return topic;
+      }
+    }
+
+    return defaultLabel;
+  }
+
+  private keywordBasedClustering(comments: string[]): TopicCluster[] {
     const topics = new Map<string, string[]>();
     
     const topicKeywords = {
@@ -141,7 +248,7 @@ class BertService {
       id: index,
       topic,
       keywords: topicKeywords[topic as keyof typeof topicKeywords] || ['umum'],
-      comments,
+      comments: comments.slice(0, 3),
       count: comments.length
     }));
   }

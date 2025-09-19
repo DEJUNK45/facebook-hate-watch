@@ -5,6 +5,12 @@ interface ApifyComment {
   timestamp: string;
   likes?: number;
   replies?: number;
+  imageUrl?: string;
+  attachments?: Array<{
+    type: 'image' | 'video' | 'link';
+    url: string;
+    description?: string;
+  }>;
 }
 
 interface ApifyResponse {
@@ -126,7 +132,13 @@ export class ApifyService {
             text: item.text || '',
             timestamp: item.date || item.timestamp || new Date().toISOString(),
             likes: parseInt(item.likesCount) || 0,
-            replies: item.commentsCount || 0
+            replies: item.commentsCount || 0,
+            imageUrl: item.imageUrl || item.image,
+            attachments: item.attachments || (item.imageUrl ? [{
+              type: 'image' as const,
+              url: item.imageUrl,
+              description: item.imageDescription || 'Gambar komentar'
+            }] : undefined)
           });
           
           // Ambil info post dari item pertama (semua item memiliki postTitle yang sama)
