@@ -16,6 +16,8 @@ import EntityTargets from '@/components/EntityTargets';
 import EmojiDisplay from '@/components/EmojiDisplay';
 import CommentDisplay from '@/components/CommentDisplay';
 import { SentimentChart } from '@/components/SentimentChart';
+import { UUITEAnalysis } from '@/components/UUITEAnalysis';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -74,13 +76,12 @@ const FacebookAnalysis = () => {
   const [useAdvancedAnalysis, setUseAdvancedAnalysis] = useState(true);
   const [resultsLimit, setResultsLimit] = useState(50);
   const [showImages, setShowImages] = useState(true);
+  const [analysisResults, setAnalysisResults] = useState<any[]>([]);
   const { toast } = useToast();
 
   const isValidFacebookUrl = (url: string) => {
     return url.startsWith('https://www.facebook.com/') || url.startsWith('https://facebook.com/');
   };
-
-
 
   const getClassificationBadge = (classification: string) => {
     const variants: Record<string, string> = {
@@ -144,6 +145,9 @@ const FacebookAnalysis = () => {
           category: result.category,
           confidence: result.confidence
         }));
+        
+        // Store analysis results for UU ITE analysis
+        setAnalysisResults(analysisResults);
         
         stats = ApifyService.getStatistics(bertResults);
       } else {
@@ -383,94 +387,120 @@ const FacebookAnalysis = () => {
                   </CardContent>
                 </Card>
 
-                {/* Sentiment Visualization */}
-                <SentimentChart 
-                  statistics={{
-                    total: analysisData.statistics.total,
-                    hate: analysisData.statistics.totalHateSpeech,
-                    neutral: analysisData.statistics.neutral,
-                    positive: Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech),
-                    hatePercentage: Math.round((analysisData.statistics.totalHateSpeech / analysisData.statistics.total) * 100),
-                    neutralPercentage: Math.round((analysisData.statistics.neutral / analysisData.statistics.total) * 100),
-                    positivePercentage: Math.round((Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech) / analysisData.statistics.total) * 100)
-                  }}
-                />
+                {/* Analysis Results in Tabs */}
+                <Tabs defaultValue="overview" className="w-full">
+                  <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="comments">Komentar</TabsTrigger>
+                    <TabsTrigger value="topics">Topik</TabsTrigger>
+                    <TabsTrigger value="entities">Target</TabsTrigger>
+                    <TabsTrigger value="uu-ite">UU ITE</TabsTrigger>
+                  </TabsList>
 
-                {/* Topic Clustering */}
-                <TopicClustering clusters={analysisData.topics} />
+                  <TabsContent value="overview" className="space-y-6">
+                    {/* Sentiment Visualization */}
+                    <SentimentChart 
+                      statistics={{
+                        total: analysisData.statistics.total,
+                        hate: analysisData.statistics.totalHateSpeech,
+                        neutral: analysisData.statistics.neutral,
+                        positive: Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech),
+                        hatePercentage: Math.round((analysisData.statistics.totalHateSpeech / analysisData.statistics.total) * 100),
+                        neutralPercentage: Math.round((analysisData.statistics.neutral / analysisData.statistics.total) * 100),
+                        positivePercentage: Math.round((Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech) / analysisData.statistics.total) * 100)
+                      }}
+                    />
+                  </TabsContent>
 
-                {/* Entity Targets */}
-                <EntityTargets entities={analysisData.entities} />
-
-                {/* Comments Display */}
-                {showDetailedView && (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-semibold">Detail Komentar:</h3>
-                      <Badge variant="outline">
-                        {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
-                      </Badge>
-                    </div>
-
-                    {showImages ? (
+                  <TabsContent value="comments">
+                    {/* Comments Display */}
+                    {showDetailedView && (
                       <div className="space-y-4">
-                        {analysisData.results.map((result, index) => {
-                          const comment = {
-                            id: `comment_${index}`,
-                            author: result.userName,
-                            text: result.text,
-                            timestamp: new Date().toISOString(),
-                            imageUrl: result.imageUrl,
-                            attachments: result.attachments
-                          };
-                          
-                          return (
-                            <CommentDisplay
-                              key={index}
-                              comment={comment}
-                              classification={result.classification}
-                              getClassificationBadge={getClassificationBadge}
-                            />
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <Card>
-                        <div className="max-h-96 overflow-y-auto">
-                          <Table>
-                            <TableHeader className="sticky top-0 bg-background">
-                              <TableRow>
-                                <TableHead>Akun</TableHead>
-                                <TableHead>Komentar</TableHead>
-                                <TableHead>Klasifikasi</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {analysisData.results.map((result, index) => (
-                                <TableRow key={index}>
-                                  <TableCell className="font-medium">{result.userName}</TableCell>
-                                  <TableCell className="max-w-md">
-                                    <EmojiDisplay text={result.text} />
-                                    {(result.imageUrl || (result.attachments && result.attachments.length > 0)) && (
-                                      <Badge variant="secondary" className="ml-2 text-xs">
-                                        📷 Media
-                                      </Badge>
-                                    )}
-                                  </TableCell>
-                                  <TableCell>{getClassificationBadge(result.classification)}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-xl font-semibold">Detail Komentar:</h3>
+                          <Badge variant="outline">
+                            {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
+                          </Badge>
                         </div>
-                      </Card>
+
+                        {showImages ? (
+                          <div className="space-y-4">
+                            {analysisData.results.map((result, index) => {
+                              const comment = {
+                                id: `comment_${index}`,
+                                author: result.userName,
+                                text: result.text,
+                                timestamp: new Date().toISOString(),
+                                imageUrl: result.imageUrl,
+                                attachments: result.attachments
+                              };
+                              
+                              return (
+                                <CommentDisplay
+                                  key={index}
+                                  comment={comment}
+                                  classification={result.classification}
+                                  getClassificationBadge={getClassificationBadge}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <Card>
+                            <div className="max-h-96 overflow-y-auto">
+                              <Table>
+                                <TableHeader className="sticky top-0 bg-background">
+                                  <TableRow>
+                                    <TableHead>Akun</TableHead>
+                                    <TableHead>Komentar</TableHead>
+                                    <TableHead>Klasifikasi</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {analysisData.results.map((result, index) => (
+                                    <TableRow key={index}>
+                                      <TableCell className="font-medium">{result.userName}</TableCell>
+                                      <TableCell className="max-w-xs">
+                                        <div className="space-y-1">
+                                          <p className="text-sm break-words">
+                                            {result.text.length > 100 ? `${result.text.substring(0, 100)}...` : result.text}
+                                          </p>
+                                          <EmojiDisplay text={result.text} />
+                                          {(result.imageUrl || (result.attachments && result.attachments.length > 0)) && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              📷 Media
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>{getClassificationBadge(result.classification)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </Card>
+                        )}
+                        
+                        <p className="text-xs text-muted-foreground">
+                          * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'} untuk mendeteksi ujaran kebencian dan topik.
+                        </p>
+                      </div>
                     )}
-                    
-                    <p className="text-xs text-muted-foreground">
-                      * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'} untuk mendeteksi ujaran kebencian dan topik.
-                    </p>
-                  </div>
-                )}
+                  </TabsContent>
+
+                  <TabsContent value="topics">
+                    <TopicClustering clusters={analysisData.topics} />
+                  </TabsContent>
+
+                  <TabsContent value="entities">
+                    <EntityTargets entities={analysisData.entities} />
+                  </TabsContent>
+                  
+                  <TabsContent value="uu-ite">
+                    <UUITEAnalysis results={analysisResults} />
+                  </TabsContent>
+                </Tabs>
               </div>
             )}
           </CardContent>

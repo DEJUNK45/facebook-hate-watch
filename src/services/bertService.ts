@@ -5,6 +5,14 @@ export interface BertAnalysisResult {
   sentiment: 'hate' | 'neutral' | 'positive';
   confidence: number;
   category?: string;
+  uiteViolation?: UUiteViolation;
+}
+
+export interface UUiteViolation {
+  hasViolation: boolean;
+  articles: string[];
+  severity: 'low' | 'medium' | 'high';
+  description: string;
 }
 
 export interface TopicCluster {
@@ -31,17 +39,17 @@ class BertService {
     
     this.isLoading = true;
     try {
-      // Using a multilingual BERT model that supports Indonesian
+      // Using Xenova toxic-bert model that works with Transformers.js
       this.classifier = await pipeline(
         'text-classification',
-        'unitary/toxic-bert',
+        'Xenova/toxic-bert',
         { device: 'webgpu' }
       );
     } catch (error) {
       console.warn('WebGPU not available, falling back to CPU');
       this.classifier = await pipeline(
         'text-classification',
-        'unitary/toxic-bert'
+        'Xenova/toxic-bert'
       );
     }
     this.isLoading = false;
@@ -57,19 +65,28 @@ class BertService {
         const result = await this.classifier(comment);
         const isHate = result[0]?.label === 'TOXIC' && result[0]?.score > 0.7;
         
-        results.push({
+        const analysisResult: BertAnalysisResult = {
           text: comment,
           sentiment: isHate ? 'hate' : (result[0]?.score > 0.3 ? 'neutral' : 'positive'),
           confidence: result[0]?.score || 0,
           category: isHate ? this.categorizeHateSpeech(comment) : undefined
-        });
+        };
+        
+        // Add UU ITE analysis
+        analysisResult.uiteViolation = this.analyzeUUITEViolation(comment, isHate);
+        results.push(analysisResult);
       } catch (error) {
         // Fallback to keyword-based analysis
-        results.push({
+        const sentiment = this.keywordBasedAnalysis(comment);
+        const analysisResult: BertAnalysisResult = {
           text: comment,
-          sentiment: this.keywordBasedAnalysis(comment),
+          sentiment,
           confidence: 0.5
-        });
+        };
+        
+        // Add UU ITE analysis even for fallback
+        analysisResult.uiteViolation = this.analyzeUUITEViolation(comment, sentiment === 'hate');
+        results.push(analysisResult);
       }
     }
     
@@ -305,6 +322,55 @@ class BertService {
     });
     
     return Array.from(entities.values()).sort((a, b) => b.mentions - a.mentions);
+  }
+
+  private analyzeUUITEViolation(text: string, isHate: boolean): UUiteViolation {
+    const lowerText = text.toLowerCase();
+    const violations = [];
+    let severity: 'low' | 'medium' | 'high' = 'low';
+    let description = '';
+
+    // UU ITE Pasal 27 ayat (3) - Penghinaan dan pencemaran nama baik
+    if (/(bangsat|anjing|babi|kampret|goblok|tolol|bodoh|sialan|sampah|tai|setan)/.test(lowerText)) {
+      violations.push('Pasal 27 ayat (3)');
+      severity = 'medium';
+      description += 'Potensi penghinaan dan pencemaran nama baik. ';
+    }
+
+    // UU ITE Pasal 28 ayat (2) - Menimbulkan kebencian berdasarkan SARA
+    if (/(kafir|kristen|islam|hindu|budha|yahudi|pribumi|cina|arab|jawa|batak|dayak|padang)/.test(lowerText) && isHate) {
+      violations.push('Pasal 28 ayat (2)');
+      severity = 'high';
+      description += 'Potensi menimbulkan kebencian berdasarkan suku, agama, ras, dan antargolongan (SARA). ';
+    }
+
+    // UU ITE Pasal 45A ayat (2) - Ancaman kekerasan
+    if (/(bunuh|matikan|hancurkan|serang|hajar|bom|teror|bakar|lempar|pukul)/.test(lowerText)) {
+      violations.push('Pasal 45A ayat (2)');
+      severity = 'high';
+      description += 'Potensi ancaman kekerasan atau terorisme. ';
+    }
+
+    // UU ITE Pasal 27 ayat (4) - Pemerasan dan pengancaman
+    if (/(ancam|teror|bongkar|sebar|foto|video|rahasia|uang|bayar)/.test(lowerText) && /(atau|jika|kalau|kecuali)/.test(lowerText)) {
+      violations.push('Pasal 27 ayat (4)');
+      severity = 'high';
+      description += 'Potensi pemerasan dan pengancaman. ';
+    }
+
+    // UU ITE Pasal 28 ayat (1) - Berita bohong dan menyesatkan
+    if (/(hoax|bohong|palsu|fitnah|isu|kabar|berita)/.test(lowerText) && /(pemerintah|presiden|menteri|politik)/.test(lowerText)) {
+      violations.push('Pasal 28 ayat (1)');
+      severity = 'medium';
+      description += 'Potensi penyebaran berita bohong dan menyesatkan. ';
+    }
+
+    return {
+      hasViolation: violations.length > 0,
+      articles: violations,
+      severity,
+      description: description.trim() || 'Tidak terdeteksi pelanggaran UU ITE yang signifikan.'
+    };
   }
 }
 
