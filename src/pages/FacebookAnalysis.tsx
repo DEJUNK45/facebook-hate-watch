@@ -221,7 +221,7 @@ const FacebookAnalysis = () => {
         <Card className="shadow-xl">
           <CardHeader className="text-center">
             <CardTitle className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Analisis Ujaran Kebencian dari Postingan Facebook
+              Analisis Digital Agresi dari Postingan Facebook
             </CardTitle>
             <p className="text-muted-foreground mt-2">
               Masukkan URL postingan Facebook untuk menganalisis komentar.
