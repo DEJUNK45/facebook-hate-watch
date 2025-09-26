@@ -109,14 +109,14 @@ const FacebookAnalysis = () => {
     // Add headers
     csvData.push([
       'URL Postingan',
-      'Konten Postingan', 
+      'Konten Postingan',
       'Nama Pengguna',
-      'Komentar',
+      'Komentar pengguna',
       'Klasifikasi',
       'Topik Utama',
       'Target Entitas',
       'UU ITE',
-      'UU ITE - Deskripsi'
+      'UU ITE Deskripsi'
     ]);
 
     // Process each comment
