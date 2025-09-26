@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ApifyService } from '@/services/apifyService';
 import { bertService, TopicCluster, EntityTarget } from '@/services/bertService';
@@ -97,6 +97,91 @@ const FacebookAnalysis = () => {
         {classification}
       </Badge>
     );
+  };
+
+  const downloadCommentsAsCSV = () => {
+    if (!analysisData) return;
+
+    // Prepare CSV data
+    const csvData = [];
+    
+    // Add headers
+    csvData.push([
+      'URL Postingan',
+      'Nama Pengguna',
+      'Komentar',
+      'Klasifikasi',
+      'Kategori Detail',
+      'Confidence Score',
+      'Topik Utama',
+      'Target Entitas',
+      'UU ITE - Ada Pelanggaran',
+      'UU ITE - Tingkat Risiko',
+      'UU ITE - Pasal Terlanggar',
+      'UU ITE - Deskripsi',
+      'Media URL'
+    ]);
+
+    // Process each comment
+    analysisData.results.forEach((comment, index) => {
+      const analysisResult = analysisResults[index];
+      const uiteViolation = analysisResult?.uiteViolation;
+      
+      // Get relevant topics for this comment
+      const relevantTopics = analysisData.topics
+        .filter(topic => topic.keywords.some(keyword => 
+          comment.text.toLowerCase().includes(keyword.toLowerCase())
+        ))
+        .map(topic => topic.keywords.slice(0, 3).join(', '))
+        .join(' | ');
+
+      // Get relevant entities for this comment  
+      const relevantEntities = analysisData.entities
+        .filter(entity => 
+          comment.text.toLowerCase().includes(entity.entity.toLowerCase())
+        )
+        .map(entity => `${entity.entity} (${entity.type})`)
+        .join(' | ');
+
+      csvData.push([
+        url,
+        comment.userName,
+        comment.text.replace(/"/g, '""'), // Escape quotes for CSV
+        comment.classification,
+        analysisResult?.category || '',
+        analysisResult?.confidence?.toFixed(2) || '',
+        relevantTopics || 'Tidak teridentifikasi',
+        relevantEntities || 'Tidak teridentifikasi',
+        uiteViolation?.hasViolation ? 'Ya' : 'Tidak',
+        uiteViolation?.severity || '',
+        uiteViolation?.articles?.join(', ') || '',
+        uiteViolation?.description || '',
+        comment.imageUrl || comment.attachments?.map(a => a.url).join(' | ') || ''
+      ]);
+    });
+
+    // Convert to CSV string
+    const csvContent = csvData
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+
+    // Add BOM for proper Unicode support in Excel
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // Create download link
+    const link = document.createElement('a');
+    const fileName = `analisis_facebook_${new Date().toISOString().split('T')[0]}.csv`;
+    
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', fileName);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const handleAnalysis = async () => {
@@ -415,13 +500,24 @@ const FacebookAnalysis = () => {
                   <TabsContent value="comments">
                     {/* Comments Display */}
                     {showDetailedView && (
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h3 className="text-xl font-semibold">Detail Komentar:</h3>
-                          <Badge variant="outline">
-                            {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
-                          </Badge>
-                        </div>
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                              <h3 className="text-xl font-semibold">Detail Komentar:</h3>
+                              <Button 
+                                onClick={downloadCommentsAsCSV}
+                                variant="outline" 
+                                size="sm"
+                                className="flex items-center gap-2"
+                              >
+                                <Download className="h-4 w-4" />
+                                Download CSV
+                              </Button>
+                            </div>
+                            <Badge variant="outline">
+                              {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
+                            </Badge>
+                          </div>
 
                         {showImages ? (
                           <div className="space-y-4">
