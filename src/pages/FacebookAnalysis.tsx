@@ -141,15 +141,15 @@ const FacebookAnalysis = () => {
         .join(' | ');
 
       csvData.push([
-        url,
+        url || 'Tidak ada URL',
         postData?.content || 'Tidak tersedia',
-        comment.userName,
-        comment.text.replace(/"/g, '""'), // Escape quotes for CSV
-        comment.classification,
-        relevantTopics || 'Tidak teridentifikasi',
-        relevantEntities || 'Tidak teridentifikasi',
+        comment?.userName || 'Tidak tersedia',
+        (comment?.text || '').replace(/"/g, '""'),
+        comment?.classification || 'Tidak tersedia',
+        Array.isArray(relevantTopics) ? relevantTopics.join('; ') : (relevantTopics || 'Tidak teridentifikasi'),
+        Array.isArray(relevantEntities) ? relevantEntities.join('; ') : (relevantEntities || 'Tidak teridentifikasi'),
         uiteViolation?.hasViolation ? 'Ya' : 'Tidak',
-        uiteViolation?.description || ''
+        uiteViolation?.description || 'Tidak ada keterangan'
       ]);
     });
 
