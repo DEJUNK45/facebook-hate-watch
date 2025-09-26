@@ -72,6 +72,7 @@ const FacebookAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [postData, setPostData] = useState<any>(null);
   const [showDetailedView, setShowDetailedView] = useState(false);
   const [useAdvancedAnalysis, setUseAdvancedAnalysis] = useState(true);
   const [resultsLimit, setResultsLimit] = useState(50);
@@ -108,18 +109,14 @@ const FacebookAnalysis = () => {
     // Add headers
     csvData.push([
       'URL Postingan',
+      'Konten Postingan', 
       'Nama Pengguna',
       'Komentar',
       'Klasifikasi',
-      'Kategori Detail',
-      'Confidence Score',
       'Topik Utama',
       'Target Entitas',
-      'UU ITE - Ada Pelanggaran',
-      'UU ITE - Tingkat Risiko',
-      'UU ITE - Pasal Terlanggar',
-      'UU ITE - Deskripsi',
-      'Media URL'
+      'UU ITE',
+      'UU ITE - Deskripsi'
     ]);
 
     // Process each comment
@@ -145,18 +142,14 @@ const FacebookAnalysis = () => {
 
       csvData.push([
         url,
+        postData?.content || 'Tidak tersedia',
         comment.userName,
         comment.text.replace(/"/g, '""'), // Escape quotes for CSV
         comment.classification,
-        analysisResult?.category || '',
-        analysisResult?.confidence?.toFixed(2) || '',
         relevantTopics || 'Tidak teridentifikasi',
         relevantEntities || 'Tidak teridentifikasi',
         uiteViolation?.hasViolation ? 'Ya' : 'Tidak',
-        uiteViolation?.severity || '',
-        uiteViolation?.articles?.join(', ') || '',
-        uiteViolation?.description || '',
-        comment.imageUrl || comment.attachments?.map(a => a.url).join(' | ') || ''
+        uiteViolation?.description || ''
       ]);
     });
 
@@ -212,6 +205,9 @@ const FacebookAnalysis = () => {
         setError("Tidak ada komentar yang ditemukan pada postingan tersebut.");
         return;
       }
+
+      // Store post data for CSV download
+      setPostData(response.data.postData);
 
       const comments = response.data.comments.map(c => c.text);
 
