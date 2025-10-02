@@ -347,6 +347,9 @@ const FacebookAnalysis = () => {
             <p className="text-muted-foreground mt-2">
               Masukkan URL postingan Facebook untuk menganalisis komentar.
             </p>
+            <p className="text-sm text-muted-foreground/70 mt-1">
+              Dibuat oleh: Dewa Gede Agung Aditya Keramas
+            </p>
           </CardHeader>
 
           <CardContent className="space-y-6">
