@@ -125,6 +125,27 @@ export class ApifyService {
         responseData.forEach((item, index) => {
           console.log(`Processing comment item ${index}:`, item);
           
+          // Parse attachments dari Apify
+          const parsedAttachments: Array<{type: 'image' | 'video' | 'link'; url: string; description?: string}> = [];
+          
+          if (item.attachments && Array.isArray(item.attachments)) {
+            item.attachments.forEach((att: any) => {
+              if (att.__typename === 'Photo' && att.image?.uri) {
+                parsedAttachments.push({
+                  type: 'image',
+                  url: att.image.uri,
+                  description: att.ocrText || 'Gambar komentar'
+                });
+              } else if (att.type === 'image' && att.url) {
+                parsedAttachments.push({
+                  type: 'image',
+                  url: att.url,
+                  description: att.description || 'Gambar komentar'
+                });
+              }
+            });
+          }
+          
           // Setiap item dalam array adalah komentar
           allComments.push({
             id: item.id || `comment_${index}`,
@@ -134,7 +155,7 @@ export class ApifyService {
             likes: parseInt(item.likesCount) || 0,
             replies: item.commentsCount || 0,
             imageUrl: item.imageUrl || item.image,
-            attachments: item.attachments || (item.imageUrl ? [{
+            attachments: parsedAttachments.length > 0 ? parsedAttachments : (item.imageUrl ? [{
               type: 'image' as const,
               url: item.imageUrl,
               description: item.imageDescription || 'Gambar komentar'
