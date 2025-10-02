@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { ApifyService } from '@/services/apifyService';
 import { bertService, TopicCluster, EntityTarget } from '@/services/bertService';
@@ -26,6 +27,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Comment {
   userName: string;
@@ -100,14 +107,13 @@ const FacebookAnalysis = () => {
     );
   };
 
-  const downloadCommentsAsCSV = () => {
-    if (!analysisData) return;
+  const prepareDownloadData = () => {
+    if (!analysisData) return [];
 
-    // Prepare CSV data
-    const csvData = [];
+    const data = [];
     
     // Add headers
-    csvData.push([
+    data.push([
       'URL Postingan',
       'Konten Postingan',
       'Nama Pengguna',
@@ -140,7 +146,7 @@ const FacebookAnalysis = () => {
         .map(entity => `${entity.entity} (${entity.type})`)
         .join(' | ');
 
-      csvData.push([
+      data.push([
         url || 'Tidak ada URL',
         postData?.content || 'Tidak tersedia',
         comment?.userName || 'Tidak tersedia',
@@ -153,8 +159,15 @@ const FacebookAnalysis = () => {
       ]);
     });
 
+    return data;
+  };
+
+  const downloadCommentsAsCSV = () => {
+    const data = prepareDownloadData();
+    if (data.length === 0) return;
+
     // Convert to CSV string
-    const csvContent = csvData
+    const csvContent = data
       .map(row => row.map(field => `"${field}"`).join(','))
       .join('\n');
 
@@ -167,14 +180,41 @@ const FacebookAnalysis = () => {
     const fileName = `analisis_facebook_${new Date().toISOString().split('T')[0]}.csv`;
     
     if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
+      const downloadUrl = URL.createObjectURL(blob);
+      link.setAttribute('href', downloadUrl);
       link.setAttribute('download', fileName);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     }
+  };
+
+  const downloadCommentsAsExcel = () => {
+    const data = prepareDownloadData();
+    if (data.length === 0) return;
+
+    // Create workbook and worksheet
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Analisis Facebook');
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 50 }, // URL Postingan
+      { wch: 40 }, // Konten Postingan
+      { wch: 20 }, // Nama Pengguna
+      { wch: 50 }, // Komentar pengguna
+      { wch: 20 }, // Klasifikasi
+      { wch: 30 }, // Topik Utama
+      { wch: 30 }, // Target Entitas
+      { wch: 10 }, // UU ITE
+      { wch: 40 }, // UU ITE Deskripsi
+    ];
+
+    // Generate Excel file
+    const fileName = `analisis_facebook_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(wb, fileName);
   };
 
   const handleAnalysis = async () => {
@@ -500,15 +540,28 @@ const FacebookAnalysis = () => {
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-4">
                               <h3 className="text-xl font-semibold">Detail Komentar:</h3>
-                              <Button 
-                                onClick={downloadCommentsAsCSV}
-                                variant="outline" 
-                                size="sm"
-                                className="flex items-center gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download CSV
-                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    Download
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={downloadCommentsAsCSV}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download CSV
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={downloadCommentsAsExcel}>
+                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                    Download Excel
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                             <Badge variant="outline">
                               {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
