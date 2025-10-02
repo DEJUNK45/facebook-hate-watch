@@ -11,7 +11,10 @@ import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { ApifyService } from '@/services/apifyService';
 import { bertService, TopicCluster, EntityTarget } from '@/services/bertService';
+import { geminiService } from '@/services/geminiService';
 import ApiKeyInput from '@/components/ApiKeyInput';
+import GeminiApiKeyInput from '@/components/GeminiApiKeyInput';
+import ClassificationDetails from '@/components/ClassificationDetails';
 import TopicClustering from '@/components/TopicClustering';
 import EntityTargets from '@/components/EntityTargets';
 import EmojiDisplay from '@/components/EmojiDisplay';
@@ -85,6 +88,8 @@ const FacebookAnalysis = () => {
   const [resultsLimit, setResultsLimit] = useState(50);
   const [showImages, setShowImages] = useState(true);
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [useGemini, setUseGemini] = useState(false);
   const { toast } = useToast();
 
   const isValidFacebookUrl = (url: string) => {
@@ -122,7 +127,10 @@ const FacebookAnalysis = () => {
       'Topik Utama',
       'Target Entitas',
       'UU ITE',
-      'UU ITE Deskripsi'
+      'UU ITE Deskripsi',
+      'Tipe Pelanggaran ITE',
+      'Tindak Tutur',
+      'Subtipe Tindak Tutur'
     ]);
 
     // Process each comment
@@ -155,7 +163,10 @@ const FacebookAnalysis = () => {
         Array.isArray(relevantTopics) ? relevantTopics.join('; ') : (relevantTopics || 'Tidak teridentifikasi'),
         Array.isArray(relevantEntities) ? relevantEntities.join('; ') : (relevantEntities || 'Tidak teridentifikasi'),
         uiteViolation?.hasViolation ? 'Ya' : 'Tidak',
-        uiteViolation?.description || 'Tidak ada keterangan'
+        uiteViolation?.description || 'Tidak ada keterangan',
+        analysisResult?.iteViolationLabel || 'Tidak terdeteksi',
+        analysisResult?.speechActType || 'Tidak terdeteksi',
+        analysisResult?.speechActSubtype || 'Tidak terdeteksi'
       ]);
     });
 
@@ -210,6 +221,9 @@ const FacebookAnalysis = () => {
       { wch: 30 }, // Target Entitas
       { wch: 10 }, // UU ITE
       { wch: 40 }, // UU ITE Deskripsi
+      { wch: 25 }, // Tipe Pelanggaran ITE
+      { wch: 20 }, // Tindak Tutur
+      { wch: 30 }, // Subtipe Tindak Tutur
     ];
 
     // Generate Excel file
@@ -254,7 +268,44 @@ const FacebookAnalysis = () => {
       let analysisResults;
       let stats;
 
-      if (useAdvancedAnalysis) {
+      if (useGemini && geminiApiKey) {
+        // Gunakan Gemini AI untuk analisis mendalam
+        console.log('Menggunakan Gemini AI untuk analisis mendalam...');
+        try {
+          geminiService.setApiKey(geminiApiKey);
+          analysisResults = await geminiService.analyzeComments(comments);
+          
+          // Konversi hasil Gemini ke format yang diharapkan
+          const geminiResults = analysisResults.map((result, index) => ({
+            comment: response.data!.comments[index],
+            sentiment: result.sentiment,
+            category: result.category,
+            confidence: result.confidence
+          }));
+          
+          // Store analysis results
+          setAnalysisResults(analysisResults);
+          
+          stats = ApifyService.getStatistics(geminiResults);
+        } catch (error) {
+          console.error('Gemini analysis failed, falling back to IndoBERT:', error);
+          toast({
+            title: "Gemini Error",
+            description: "Gagal menggunakan Gemini AI. Menggunakan analisis standar.",
+            variant: "destructive",
+          });
+          // Fallback to IndoBERT
+          analysisResults = await bertService.analyzeHateSpeech(comments);
+          const bertResults = analysisResults.map((result, index) => ({
+            comment: response.data!.comments[index],
+            sentiment: result.sentiment,
+            category: result.category,
+            confidence: result.confidence
+          }));
+          setAnalysisResults(analysisResults);
+          stats = ApifyService.getStatistics(bertResults);
+        }
+      } else if (useAdvancedAnalysis) {
         // Gunakan IndoBERT untuk analisis yang lebih akurat
         console.log('Menggunakan IndoBERT untuk analisis sentimen...');
         analysisResults = await bertService.analyzeHateSpeech(comments);
@@ -356,8 +407,38 @@ const FacebookAnalysis = () => {
             {/* API Key Input Section */}
             <ApiKeyInput />
             
+            {/* Gemini API Key Input Section */}
+            <GeminiApiKeyInput 
+              onApiKeySet={(key) => {
+                setGeminiApiKey(key);
+                toast({
+                  title: "API Key Tersimpan",
+                  description: "Gemini API Key berhasil disimpan untuk analisis mendalam.",
+                });
+              }}
+              currentApiKey={geminiApiKey}
+            />
+            
             {/* Analysis Settings */}
             <div className="space-y-4">
+              {geminiApiKey && (
+                <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border border-primary/20">
+                  <div>
+                    <Label htmlFor="use-gemini" className="text-sm font-medium">
+                      Gunakan Gemini AI untuk Analisis Mendalam
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Analisis paling akurat dengan klasifikasi tindak tutur dan pelanggaran UU ITE yang detail
+                    </p>
+                  </div>
+                  <Switch
+                    id="use-gemini"
+                    checked={useGemini}
+                    onCheckedChange={setUseGemini}
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between p-4 bg-secondary/20 rounded-lg">
                 <div>
                   <Label htmlFor="advanced-analysis" className="text-sm font-medium">
@@ -371,6 +452,7 @@ const FacebookAnalysis = () => {
                   id="advanced-analysis"
                   checked={useAdvancedAnalysis}
                   onCheckedChange={setUseAdvancedAnalysis}
+                  disabled={useGemini}
                 />
               </div>
 
@@ -437,7 +519,7 @@ const FacebookAnalysis = () => {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                <span className="font-semibold">Catatan:</span> {useAdvancedAnalysis ? `Menggunakan IndoBERT dan LDA untuk analisis ${resultsLimit} komentar.` : `Menggunakan analisis keyword-based untuk ${resultsLimit} komentar.`}
+                <span className="font-semibold">Catatan:</span> {useGemini && geminiApiKey ? `Menggunakan Gemini AI untuk analisis mendalam ${resultsLimit} komentar.` : useAdvancedAnalysis ? `Menggunakan IndoBERT dan LDA untuk analisis ${resultsLimit} komentar.` : `Menggunakan analisis keyword-based untuk ${resultsLimit} komentar.`}
               </p>
             </div>
 
@@ -513,8 +595,9 @@ const FacebookAnalysis = () => {
 
                 {/* Analysis Results in Tabs */}
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid w-full grid-cols-5">
+                  <TabsList className="grid w-full grid-cols-6">
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="classification">Klasifikasi</TabsTrigger>
                     <TabsTrigger value="comments">Komentar</TabsTrigger>
                     <TabsTrigger value="topics">Topik</TabsTrigger>
                     <TabsTrigger value="entities">Target</TabsTrigger>
@@ -534,6 +617,10 @@ const FacebookAnalysis = () => {
                         positivePercentage: Math.round((Math.max(0, analysisData.statistics.total - analysisData.statistics.neutral - analysisData.statistics.totalHateSpeech) / analysisData.statistics.total) * 100)
                       }}
                     />
+                  </TabsContent>
+
+                  <TabsContent value="classification">
+                    <ClassificationDetails results={analysisResults} />
                   </TabsContent>
 
                   <TabsContent value="comments">

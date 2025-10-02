@@ -5,6 +5,10 @@ export interface BertAnalysisResult {
   sentiment: 'hate' | 'neutral' | 'positive';
   confidence: number;
   category?: string;
+  iteViolationType?: 'defamation' | 'blasphemy' | 'unpleasant_acts' | 'incitement' | 'hoax';
+  iteViolationLabel?: string;
+  speechActType?: 'assertive' | 'directive' | 'commissive' | 'expressive' | 'declarative';
+  speechActSubtype?: string;
   uiteViolation?: UUiteViolation;
 }
 
@@ -100,7 +104,9 @@ class BertService {
             text: comment,
             sentiment,
             confidence: Math.max(result[0]?.score || 0, 0.6), // Boost confidence for keyword analysis
-            category: isHate ? this.categorizeHateSpeech(comment) : undefined
+            category: isHate ? this.categorizeHateSpeech(comment) : undefined,
+            ...this.classifyITEViolation(comment, isHate),
+            ...this.classifySpeechAct(comment, isHate)
           };
           
           analysisResult.uiteViolation = this.analyzeUUITEViolation(comment, isHate);
@@ -112,7 +118,9 @@ class BertService {
             text: comment,
             sentiment,
             confidence: 0.7, // Higher confidence for keyword analysis
-            category: sentiment === 'hate' ? this.categorizeHateSpeech(comment) : undefined
+            category: sentiment === 'hate' ? this.categorizeHateSpeech(comment) : undefined,
+            ...this.classifyITEViolation(comment, sentiment === 'hate'),
+            ...this.classifySpeechAct(comment, sentiment === 'hate')
           };
           
           analysisResult.uiteViolation = this.analyzeUUITEViolation(comment, sentiment === 'hate');
@@ -125,7 +133,9 @@ class BertService {
         const analysisResult: BertAnalysisResult = {
           text: comment,
           sentiment,
-          confidence: 0.6
+          confidence: 0.6,
+          ...this.classifyITEViolation(comment, sentiment === 'hate'),
+          ...this.classifySpeechAct(comment, sentiment === 'hate')
         };
         
         analysisResult.uiteViolation = this.analyzeUUITEViolation(comment, sentiment === 'hate');
@@ -366,6 +376,132 @@ class BertService {
     });
     
     return Array.from(entities.values()).sort((a, b) => b.mentions - a.mentions);
+  }
+
+  private classifyITEViolation(text: string, isHate: boolean): {
+    iteViolationType?: 'defamation' | 'blasphemy' | 'unpleasant_acts' | 'incitement' | 'hoax';
+    iteViolationLabel?: string;
+  } {
+    const lowerText = text.toLowerCase();
+
+    // Pencemaran Nama Baik (Defamation)
+    if (/(fitnah|mencemarkan|merusak nama|mempermalukan|menghina|menjelekkan)/.test(lowerText)) {
+      return {
+        iteViolationType: 'defamation',
+        iteViolationLabel: 'Pencemaran Nama Baik'
+      };
+    }
+
+    // Penistaan (Blasphemy)
+    if (/(menista|menghina agama|menghina tuhan|menghina nabi|kafir|sesat|ajaran sesat)/.test(lowerText)) {
+      return {
+        iteViolationType: 'blasphemy',
+        iteViolationLabel: 'Penistaan Agama'
+      };
+    }
+
+    // Menghasut (Incitement)
+    if (/(menghasut|ayo|mari|kita|serang|bunuh|hancurkan|lawan|perang|revolusi)/.test(lowerText) && isHate) {
+      return {
+        iteViolationType: 'incitement',
+        iteViolationLabel: 'Menghasut'
+      };
+    }
+
+    // Penyebaran Berita Bohong (Hoax)
+    if (/(hoax|bohong|palsu|isu|kabar burung|berita palsu|informasi salah|menyesatkan)/.test(lowerText)) {
+      return {
+        iteViolationType: 'hoax',
+        iteViolationLabel: 'Penyebaran Berita Bohong'
+      };
+    }
+
+    // Perbuatan Tidak Menyenangkan (Unpleasant Acts)
+    if (isHate && /(mengganggu|tidak pantas|tidak sopan|tidak menyenangkan|meresahkan)/.test(lowerText)) {
+      return {
+        iteViolationType: 'unpleasant_acts',
+        iteViolationLabel: 'Perbuatan Tidak Menyenangkan'
+      };
+    }
+
+    return {};
+  }
+
+  private classifySpeechAct(text: string, isHate: boolean): {
+    speechActType?: 'assertive' | 'directive' | 'commissive' | 'expressive' | 'declarative';
+    speechActSubtype?: string;
+  } {
+    const lowerText = text.toLowerCase();
+
+    // Direktif (Directives) - Perintah/permintaan
+    if (/(harus|jangan|tolong|silakan|coba|lakukan|berhenti|diam|pergi|keluar)/.test(lowerText)) {
+      if (isHate && /(bunuh|serang|hajar|hancurkan|musnahkan|basmi)/.test(lowerText)) {
+        return {
+          speechActType: 'directive',
+          speechActSubtype: 'Ancaman/Perintah Kasar'
+        };
+      }
+      return {
+        speechActType: 'directive',
+        speechActSubtype: 'Perintah/Permintaan'
+      };
+    }
+
+    // Komisif (Commissives) - Janji/komitmen
+    if (/(akan|bakal|pasti|berjanji|jamin|nanti|suatu saat)/.test(lowerText)) {
+      if (isHate && /(balas|dendam|hancurkan|bunuh|selesaikan|hajar)/.test(lowerText)) {
+        return {
+          speechActType: 'commissive',
+          speechActSubtype: 'Janji Balas Dendam'
+        };
+      }
+      return {
+        speechActType: 'commissive',
+        speechActSubtype: 'Janji/Komitmen'
+      };
+    }
+
+    // Ekspresif (Expressives) - Ekspresi perasaan
+    if (/(bangsat|tolol|goblok|bodoh|sialan|benci|muak|jijik|brengsek)/.test(lowerText) || 
+        /(senang|bahagia|gembira|mantap|keren|hebat|bagus)/.test(lowerText)) {
+      if (isHate) {
+        return {
+          speechActType: 'expressive',
+          speechActSubtype: 'Penghinaan/Ejekan'
+        };
+      }
+      return {
+        speechActType: 'expressive',
+        speechActSubtype: 'Ekspresi Perasaan'
+      };
+    }
+
+    // Deklaratif (Declarations) - Menyatakan status
+    if (/(kamu|dia|mereka|ini|itu)\s+(adalah|itu|merupakan|termasuk|bukan)/.test(lowerText)) {
+      if (isHate && /(bukan bagian|diusir|terbuang|dikucilkan|tidak pantas|tidak layak)/.test(lowerText)) {
+        return {
+          speechActType: 'declarative',
+          speechActSubtype: 'Deklarasi Diskriminatif'
+        };
+      }
+      return {
+        speechActType: 'declarative',
+        speechActSubtype: 'Pernyataan Status'
+      };
+    }
+
+    // Asertif (Assertives) - Menyatakan fakta/pendapat (default)
+    if (isHate && /(fitnah|tuduh|dusta|bohong|palsu|salah)/.test(lowerText)) {
+      return {
+        speechActType: 'assertive',
+        speechActSubtype: 'Tuduhan/Fitnah'
+      };
+    }
+
+    return {
+      speechActType: 'assertive',
+      speechActSubtype: 'Pernyataan Fakta/Pendapat'
+    };
   }
 
   private analyzeUUITEViolation(text: string, isHate: boolean): UUiteViolation {
