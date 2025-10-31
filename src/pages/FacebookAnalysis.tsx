@@ -21,8 +21,6 @@ import EmojiDisplay from '@/components/EmojiDisplay';
 import CommentDisplay from '@/components/CommentDisplay';
 import { SentimentChart } from '@/components/SentimentChart';
 import { UUITEAnalysis } from '@/components/UUITEAnalysis';
-import { ThreadedCommentsList } from '@/components/ThreadedCommentsList';
-import { PostInfo } from '@/components/PostInfo';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -545,9 +543,6 @@ const FacebookAnalysis = () => {
             {/* Results Section */}
             {analysisData && (
               <div className="space-y-6">
-                {/* Post Information */}
-                {postData && <PostInfo postData={postData} />}
-                
                 <div className="flex items-center justify-between">
                   <h2 className="text-2xl font-semibold">Hasil Analisis</h2>
                   <div className="flex items-center space-x-2">
@@ -629,66 +624,104 @@ const FacebookAnalysis = () => {
                   </TabsContent>
 
                   <TabsContent value="comments">
-                    {/* Comments Display with Threading */}
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <h3 className="text-xl font-semibold">Detail Komentar:</h3>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="flex items-center gap-2"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem onClick={downloadCommentsAsCSV}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download CSV
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={downloadCommentsAsExcel}>
-                                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                                Download Excel
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        <Badge variant="outline">
-                          {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
-                        </Badge>
-                      </div>
+                    {/* Comments Display */}
+                    {showDetailedView && (
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-4">
+                              <h3 className="text-xl font-semibold">Detail Komentar:</h3>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="flex items-center gap-2"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    Download
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={downloadCommentsAsCSV}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download CSV
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={downloadCommentsAsExcel}>
+                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                    Download Excel
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                            <Badge variant="outline">
+                              {analysisData.results.filter(r => r.imageUrl || (r.attachments && r.attachments.length > 0)).length} komentar dengan media
+                            </Badge>
+                          </div>
 
-                      {/* Threaded Comments View */}
-                      <ThreadedCommentsList 
-                        analysisResults={analysisData.results.map((result, index) => {
-                          const analysisResult = analysisResults[index];
-                          return {
-                            comment: {
-                              id: `comment_${index}`,
-                              author: result.userName,
-                              text: result.text,
-                              timestamp: new Date().toISOString(),
-                              likes: 0,
-                              replies: 0,
-                              parentId: undefined
-                            },
-                            sentiment: result.classification === 'Netral' ? 'neutral' : 
-                                      result.classification === 'Positif' ? 'positive' : 'hate',
-                            category: result.classification !== 'Netral' && result.classification !== 'Positif' 
-                                     ? result.classification : undefined,
-                            confidence: analysisResult?.confidence || 0.5
-                          };
-                        })}
-                      />
-                      
-                      <p className="text-xs text-muted-foreground">
-                        * Analisis menggunakan {useGemini && geminiApiKey ? 'Gemini AI' : useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'} untuk mendeteksi ujaran kebencian dan topik.
-                      </p>
-                    </div>
+                        {showImages ? (
+                          <div className="space-y-4">
+                            {analysisData.results.map((result, index) => {
+                              const comment = {
+                                id: `comment_${index}`,
+                                author: result.userName,
+                                text: result.text,
+                                timestamp: new Date().toISOString(),
+                                imageUrl: result.imageUrl,
+                                attachments: result.attachments
+                              };
+                              
+                              return (
+                                <CommentDisplay
+                                  key={index}
+                                  comment={comment}
+                                  classification={result.classification}
+                                  getClassificationBadge={getClassificationBadge}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <Card>
+                            <div className="max-h-96 overflow-y-auto">
+                              <Table>
+                                <TableHeader className="sticky top-0 bg-background">
+                                  <TableRow>
+                                    <TableHead>Akun</TableHead>
+                                    <TableHead>Komentar</TableHead>
+                                    <TableHead>Klasifikasi</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {analysisData.results.map((result, index) => (
+                                    <TableRow key={index}>
+                                      <TableCell className="font-medium">{result.userName}</TableCell>
+                                      <TableCell className="max-w-xs">
+                                        <div className="space-y-1">
+                                          <p className="text-sm break-words">
+                                            {result.text.length > 100 ? `${result.text.substring(0, 100)}...` : result.text}
+                                          </p>
+                                          <EmojiDisplay text={result.text} />
+                                          {(result.imageUrl || (result.attachments && result.attachments.length > 0)) && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              📷 Media
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>{getClassificationBadge(result.classification)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </Card>
+                        )}
+                        
+                        <p className="text-xs text-muted-foreground">
+                          * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'} untuk mendeteksi ujaran kebencian dan topik.
+                        </p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="topics">
