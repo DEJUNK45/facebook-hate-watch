@@ -267,61 +267,168 @@ class BertService {
   }
 
   private inferTopicLabel(keywords: string[], defaultLabel: string): string {
-    const topicPatterns = {
-      'Politik': ['jokowi', 'presiden', 'pemerintah', 'politik', 'pemilu', 'partai', 'menteri', 'dpr'],
-      'Ekonomi': ['ekonomi', 'harga', 'inflasi', 'bbm', 'subsidi', 'pajak', 'rupiah', 'bisnis'],
-      'Sosial': ['masyarakat', 'rakyat', 'sosial', 'budaya', 'tradisi', 'keluarga', 'komunitas'],
-      'Agama': ['agama', 'islam', 'kristen', 'hindu', 'budha', 'ibadah', 'rohani', 'spiritual'],
-      'Pendidikan': ['sekolah', 'universitas', 'pendidikan', 'belajar', 'guru', 'mahasiswa', 'kuliah'],
-      'Teknologi': ['teknologi', 'digital', 'online', 'internet', 'aplikasi', 'website', 'gadget'],
-      'Kesehatan': ['kesehatan', 'dokter', 'rumah', 'sakit', 'covid', 'vaksin', 'obat', 'virus']
+    // Specific topic patterns with hierarchical structure
+    const specificTopicPatterns = {
+      // Politik - more specific subcategories
+      'Politik Pemilu & Partai': ['pemilu', 'pilpres', 'pileg', 'pilkada', 'partai', 'caleg', 'capres', 'kampanye', 'koalisi'],
+      'Politik Pemerintahan': ['presiden', 'menteri', 'gubernur', 'walikota', 'bupati', 'kabinet', 'kementerian', 'dpr', 'dprd'],
+      'Politik Kebijakan': ['kebijakan', 'regulasi', 'undang', 'peraturan', 'aturan', 'reformasi', 'perda'],
+      'Korupsi & Hukum Politik': ['korupsi', 'kpk', 'suap', 'gratifikasi', 'hukum', 'pengadilan', 'jaksa', 'polisi'],
+      
+      // Ekonomi - more specific
+      'Ekonomi Makro': ['inflasi', 'deflasi', 'resesi', 'gdp', 'pertumbuhan', 'ekonomi', 'investasi', 'ekspor', 'impor'],
+      'Harga & Subsidi': ['harga', 'mahal', 'murah', 'bbm', 'lpg', 'listrik', 'subsidi', 'tarif', 'biaya'],
+      'Keuangan & Perbankan': ['bank', 'kredit', 'pinjaman', 'bunga', 'rupiah', 'dolar', 'mata', 'uang', 'saham', 'bursa'],
+      'UMKM & Lapangan Kerja': ['umkm', 'usaha', 'bisnis', 'wirausaha', 'kerja', 'pengangguran', 'gaji', 'upah', 'tenaga'],
+      
+      // Sosial - more specific
+      'Kemiskinan & Kesejahteraan': ['miskin', 'kemiskinan', 'bantuan', 'sosial', 'sembako', 'kesejahteraan', 'rakyat'],
+      'Kriminalitas & Keamanan': ['kriminal', 'kejahatan', 'pencurian', 'perampokan', 'pembunuhan', 'keamanan', 'rawan'],
+      'Budaya & Tradisi': ['budaya', 'tradisi', 'adat', 'warisan', 'kesenian', 'seni', 'tari', 'musik'],
+      'Keluarga & Pernikahan': ['keluarga', 'nikah', 'pernikahan', 'cerai', 'perceraian', 'anak', 'orang', 'tua', 'ibu', 'ayah'],
+      
+      // Agama - more specific
+      'Ibadah & Ritual': ['sholat', 'puasa', 'haji', 'umrah', 'zakat', 'ibadah', 'doa', 'misa', 'kebaktian'],
+      'Toleransi Beragama': ['toleransi', 'antar', 'umat', 'kerukunan', 'harmoni', 'damai', 'saling', 'menghormati'],
+      'Isu Keagamaan': ['agama', 'islam', 'kristen', 'katolik', 'hindu', 'budha', 'konghucu', 'aliran', 'keyakinan'],
+      'Ustadz & Tokoh Agama': ['ustadz', 'ustad', 'kyai', 'pendeta', 'pastor', 'biksu', 'rohaniwan', 'ulama'],
+      
+      // Pendidikan - more specific
+      'Sekolah & Kurikulum': ['sekolah', 'sd', 'smp', 'sma', 'smk', 'kurikulum', 'pelajaran', 'ujian', 'nilai'],
+      'Perguruan Tinggi': ['universitas', 'kampus', 'mahasiswa', 'kuliah', 'dosen', 'skripsi', 'wisuda', 'jurusan'],
+      'Guru & Tenaga Pendidik': ['guru', 'pengajar', 'tenaga', 'pendidik', 'dosen', 'mengajar', 'pendidikan'],
+      'Biaya Pendidikan': ['uang', 'kuliah', 'spp', 'biaya', 'pendidikan', 'beasiswa', 'gratis'],
+      
+      // Teknologi - more specific
+      'Media Sosial': ['facebook', 'instagram', 'twitter', 'tiktok', 'whatsapp', 'youtube', 'sosial', 'media'],
+      'E-Commerce & Fintech': ['tokopedia', 'shopee', 'lazada', 'gojek', 'grab', 'ovo', 'dana', 'gopay', 'ecommerce'],
+      'Internet & Digital': ['internet', 'wifi', 'provider', 'telkomsel', 'indosat', 'xl', 'online', 'digital'],
+      'Gadget & Perangkat': ['hp', 'handphone', 'laptop', 'komputer', 'gadget', 'smartphone', 'android', 'iphone'],
+      
+      // Kesehatan - more specific
+      'Covid-19 & Pandemi': ['covid', 'corona', 'pandemi', 'vaksin', 'vaksinasi', 'booster', 'positif', 'isolasi'],
+      'Rumah Sakit & Pelayanan': ['rumah', 'sakit', 'rs', 'dokter', 'perawat', 'puskesmas', 'klinik', 'pelayanan'],
+      'Penyakit & Pengobatan': ['sakit', 'penyakit', 'obat', 'pengobatan', 'terapi', 'operasi', 'rawat', 'inap'],
+      'BPJS & Asuransi': ['bpjs', 'asuransi', 'jaminan', 'kesehatan', 'klaim', 'premi'],
+      
+      // Infrastruktur & Transportasi
+      'Jalan & Infrastruktur': ['jalan', 'infrastruktur', 'jembatan', 'tol', 'pembangunan', 'konstruksi', 'proyek'],
+      'Transportasi Umum': ['busway', 'transjakarta', 'mrt', 'lrt', 'kereta', 'commuter', 'angkot', 'ojek'],
+      'Kemacetan & Lalu Lintas': ['macet', 'kemacetan', 'lalu', 'lintas', 'traffic', 'kendaraan'],
+      
+      // Lingkungan
+      'Banjir & Bencana': ['banjir', 'bencana', 'longsor', 'gempa', 'tsunami', 'gunung', 'meletus', 'kebakaran'],
+      'Polusi & Sampah': ['polusi', 'limbah', 'sampah', 'pencemaran', 'asap', 'udara', 'kotor'],
+      'Lingkungan Hidup': ['lingkungan', 'alam', 'hutan', 'reboisasi', 'hijau', 'climate', 'iklim'],
+      
+      // Olahraga & Entertainment
+      'Sepak Bola': ['sepak', 'bola', 'football', 'timnas', 'liga', 'persija', 'persib', 'arema'],
+      'Bulutangkis & Olahraga': ['bulutangkis', 'badminton', 'basket', 'voli', 'atletik', 'renang', 'olah', 'raga'],
+      'Film & Hiburan': ['film', 'movie', 'sinetron', 'drama', 'artis', 'selebriti', 'hiburan', 'entertainment']
     };
 
-    for (const [topic, patterns] of Object.entries(topicPatterns)) {
-      if (keywords.some(keyword => patterns.some(pattern => keyword.includes(pattern)))) {
+    // Find the most specific matching topic
+    for (const [topic, patterns] of Object.entries(specificTopicPatterns)) {
+      const matchCount = keywords.filter(keyword => 
+        patterns.some(pattern => keyword.includes(pattern))
+      ).length;
+      
+      // If at least 2 keywords match or 1 keyword with high confidence
+      if (matchCount >= 2 || (matchCount === 1 && keywords.length <= 3)) {
         return topic;
       }
+    }
+
+    // If no specific match, try to create a topic from the main keywords
+    if (keywords.length > 0) {
+      const mainKeywords = keywords.slice(0, 3).join(', ');
+      return `Diskusi: ${mainKeywords}`;
     }
 
     return defaultLabel;
   }
 
   private keywordBasedClustering(comments: string[]): TopicCluster[] {
-    const topics = new Map<string, string[]>();
+    const topics = new Map<string, { comments: string[], keywords: Set<string> }>();
     
-    const topicKeywords = {
-      'Politik': ['jokowi', 'presiden', 'pemerintah', 'politik', 'pemilu', 'partai'],
-      'Ekonomi': ['ekonomi', 'harga', 'inflasi', 'bbm', 'subsidi', 'pajak'],
-      'Sosial': ['masyarakat', 'rakyat', 'sosial', 'budaya', 'tradisi'],
-      'Agama': ['agama', 'islam', 'kristen', 'hindu', 'budha', 'ibadah'],
-      'Pendidikan': ['sekolah', 'universitas', 'pendidikan', 'belajar', 'guru']
+    const specificTopicKeywords = {
+      'Politik Pemilu & Partai': ['pemilu', 'pilpres', 'pileg', 'pilkada', 'partai', 'caleg', 'capres', 'kampanye'],
+      'Politik Pemerintahan': ['presiden', 'menteri', 'gubernur', 'walikota', 'bupati', 'kabinet', 'jokowi', 'prabowo'],
+      'Korupsi & Hukum': ['korupsi', 'kpk', 'suap', 'gratifikasi', 'hukum', 'pengadilan', 'jaksa'],
+      'Ekonomi & Harga': ['ekonomi', 'harga', 'inflasi', 'bbm', 'subsidi', 'pajak', 'mahal', 'murah'],
+      'Keuangan & Bank': ['bank', 'kredit', 'rupiah', 'dolar', 'saham', 'investasi', 'pinjaman'],
+      'Kemiskinan & Sosial': ['miskin', 'kemiskinan', 'bantuan', 'sosial', 'rakyat', 'kesejahteraan'],
+      'Kriminalitas': ['kriminal', 'kejahatan', 'pencurian', 'pembunuhan', 'keamanan', 'rawan'],
+      'Budaya & Tradisi': ['budaya', 'tradisi', 'adat', 'kesenian', 'seni', 'tari'],
+      'Agama & Ibadah': ['agama', 'islam', 'kristen', 'hindu', 'budha', 'sholat', 'ibadah', 'ustadz'],
+      'Toleransi Agama': ['toleransi', 'umat', 'kerukunan', 'harmoni', 'damai'],
+      'Sekolah & Kurikulum': ['sekolah', 'sd', 'smp', 'sma', 'kurikulum', 'pelajaran', 'ujian'],
+      'Kampus & Mahasiswa': ['universitas', 'kampus', 'mahasiswa', 'kuliah', 'dosen', 'skripsi'],
+      'Guru & Pendidik': ['guru', 'pengajar', 'pendidik', 'mengajar', 'pendidikan'],
+      'Media Sosial': ['facebook', 'instagram', 'twitter', 'tiktok', 'whatsapp', 'youtube'],
+      'E-Commerce': ['tokopedia', 'shopee', 'lazada', 'gojek', 'grab', 'ovo', 'dana'],
+      'Internet & Provider': ['internet', 'wifi', 'provider', 'telkomsel', 'indosat', 'xl'],
+      'Covid-19': ['covid', 'corona', 'pandemi', 'vaksin', 'vaksinasi', 'isolasi'],
+      'Rumah Sakit': ['rumah', 'sakit', 'rs', 'dokter', 'perawat', 'puskesmas'],
+      'BPJS & Asuransi': ['bpjs', 'asuransi', 'jaminan', 'kesehatan', 'klaim'],
+      'Infrastruktur & Jalan': ['jalan', 'infrastruktur', 'jembatan', 'tol', 'pembangunan'],
+      'Transportasi': ['busway', 'transjakarta', 'mrt', 'lrt', 'kereta', 'commuter'],
+      'Kemacetan': ['macet', 'kemacetan', 'lalu', 'lintas', 'traffic'],
+      'Banjir & Bencana': ['banjir', 'bencana', 'longsor', 'gempa', 'tsunami'],
+      'Polusi & Sampah': ['polusi', 'limbah', 'sampah', 'pencemaran', 'asap'],
+      'Lingkungan Hidup': ['lingkungan', 'alam', 'hutan', 'hijau', 'iklim'],
+      'Sepak Bola': ['sepak', 'bola', 'football', 'timnas', 'liga', 'persija'],
+      'Olahraga Lainnya': ['bulutangkis', 'badminton', 'basket', 'voli', 'atletik'],
+      'Film & Hiburan': ['film', 'movie', 'sinetron', 'drama', 'artis', 'selebriti']
     };
     
     comments.forEach(comment => {
       const lowerComment = comment.toLowerCase();
-      let assigned = false;
+      const words = lowerComment.split(/\s+/);
+      let maxMatchScore = 0;
+      let bestTopic = '';
+      let matchedKeywords: string[] = [];
       
-      Object.entries(topicKeywords).forEach(([topic, keywords]) => {
-        if (!assigned && keywords.some(keyword => lowerComment.includes(keyword))) {
-          if (!topics.has(topic)) topics.set(topic, []);
-          topics.get(topic)!.push(comment);
-          assigned = true;
+      // Find the best matching topic based on keyword count
+      Object.entries(specificTopicKeywords).forEach(([topic, keywords]) => {
+        const matches = keywords.filter(keyword => lowerComment.includes(keyword));
+        if (matches.length > maxMatchScore) {
+          maxMatchScore = matches.length;
+          bestTopic = topic;
+          matchedKeywords = matches;
         }
       });
       
-      if (!assigned) {
-        if (!topics.has('Umum')) topics.set('Umum', []);
-        topics.get('Umum')!.push(comment);
+      if (maxMatchScore > 0) {
+        if (!topics.has(bestTopic)) {
+          topics.set(bestTopic, { comments: [], keywords: new Set() });
+        }
+        const topicData = topics.get(bestTopic)!;
+        topicData.comments.push(comment);
+        matchedKeywords.forEach(kw => topicData.keywords.add(kw));
+      } else {
+        // Extract meaningful words for "Umum" category
+        const meaningfulWords = words.filter(word => 
+          word.length > 3 && 
+          !['yang', 'dan', 'ini', 'itu', 'untuk', 'dengan', 'dari', 'pada'].includes(word)
+        ).slice(0, 3);
+        
+        if (!topics.has('Diskusi Umum')) {
+          topics.set('Diskusi Umum', { comments: [], keywords: new Set() });
+        }
+        const topicData = topics.get('Diskusi Umum')!;
+        topicData.comments.push(comment);
+        meaningfulWords.forEach(word => topicData.keywords.add(word));
       }
     });
     
-    return Array.from(topics.entries()).map(([topic, comments], index) => ({
+    return Array.from(topics.entries()).map(([topic, data], index) => ({
       id: index,
       topic,
-      keywords: topicKeywords[topic as keyof typeof topicKeywords] || ['umum'],
-      comments: comments.slice(0, 3),
-      count: comments.length
-    }));
+      keywords: Array.from(data.keywords).slice(0, 5),
+      comments: data.comments.slice(0, 3),
+      count: data.comments.length
+    })).sort((a, b) => b.count - a.count);
   }
 
   extractEntityTargets(comments: string[]): EntityTarget[] {
