@@ -6,6 +6,7 @@ interface ApifyComment {
   likes?: number;
   replies?: number;
   imageUrl?: string;
+  parentId?: string; // ID komentar induk untuk nested comments
   attachments?: Array<{
     type: 'image' | 'video' | 'link';
     url: string;
@@ -24,6 +25,14 @@ interface ApifyResponse {
       timestamp: string;
       likes: number;
       shares: number;
+      reactions?: {
+        like: number;
+        love: number;
+        haha: number;
+        wow: number;
+        sad: number;
+        angry: number;
+      };
     };
   };
   error?: string;
@@ -62,7 +71,7 @@ export class ApifyService {
       const apiEndpoint = `https://api.apify.com/v2/acts/apify~facebook-comments-scraper/run-sync-get-dataset-items?token=${apiKey}`;
       
       const requestBody = {
-        includeNestedComments: false,
+        includeNestedComments: true, // Enable nested comments
         resultsLimit: resultsLimit,
         startUrls: [
           {
@@ -113,7 +122,22 @@ export class ApifyService {
         
         // Ambil semua komentar dari response - setiap item adalah komentar
         const allComments: ApifyComment[] = [];
-        let postInfo = {
+        let postInfo: {
+          title: string;
+          content: string;
+          author: string;
+          timestamp: string;
+          likes: number;
+          shares: number;
+          reactions?: {
+            like: number;
+            love: number;
+            haha: number;
+            wow: number;
+            sad: number;
+            angry: number;
+          };
+        } = {
           title: "Facebook Post",
           content: "",
           author: "Facebook User",
@@ -154,6 +178,7 @@ export class ApifyService {
             timestamp: item.date || item.timestamp || new Date().toISOString(),
             likes: parseInt(item.likesCount) || 0,
             replies: item.commentsCount || 0,
+            parentId: item.parentId || item.parent_comment_id, // Support parent-child relationship
             imageUrl: item.imageUrl || item.image,
             attachments: parsedAttachments.length > 0 ? parsedAttachments : (item.imageUrl ? [{
               type: 'image' as const,
@@ -162,15 +187,23 @@ export class ApifyService {
             }] : undefined)
           });
           
-          // Ambil info post dari item pertama (semua item memiliki postTitle yang sama)
+           // Ambil info post dari item pertama (semua item memiliki postTitle yang sama)
           if (index === 0 && item.postTitle) {
             postInfo = {
               title: item.postTitle.substring(0, 100) || "Facebook Post",
               content: item.postTitle || "Post content",
               author: "Facebook Post Author",
               timestamp: item.date || new Date().toISOString(),
-              likes: 0,
-              shares: 0
+              likes: item.postLikes || 0,
+              shares: item.postShares || 0,
+              reactions: item.reactions ? {
+                like: item.reactions.like || 0,
+                love: item.reactions.love || 0,
+                haha: item.reactions.haha || 0,
+                wow: item.reactions.wow || 0,
+                sad: item.reactions.sad || 0,
+                angry: item.reactions.angry || 0,
+              } : undefined
             };
           }
         });
@@ -271,6 +304,24 @@ export class ApifyService {
         replies: 2
       },
       {
+        id: '1_reply_1',
+        author: 'Sarah Lee',
+        text: 'Saya juga setuju! Ini contoh yang bagus.',
+        timestamp: new Date(Date.now() - 3000000).toISOString(),
+        likes: 5,
+        replies: 0,
+        parentId: '1'
+      },
+      {
+        id: '1_reply_2',
+        author: 'Mike Chen',
+        text: 'Terima kasih sudah menginspirasi kita semua.',
+        timestamp: new Date(Date.now() - 2500000).toISOString(),
+        likes: 3,
+        replies: 0,
+        parentId: '1'
+      },
+      {
         id: '2', 
         author: 'Jane Smith',
         text: 'Orang-orang seperti ini memang tidak berguna dan harus dienyahkan dari masyarakat.',
@@ -279,12 +330,30 @@ export class ApifyService {
         replies: 8
       },
       {
+        id: '2_reply_1',
+        author: 'Alex Wong',
+        text: 'Jangan terlalu keras, kita harus saling menghormati.',
+        timestamp: new Date(Date.now() - 6800000).toISOString(),
+        likes: 15,
+        replies: 0,
+        parentId: '2'
+      },
+      {
         id: '3',
         author: 'Ahmad Rahman',
         text: 'Terima kasih sudah berbagi informasi yang bermanfaat ini.',
         timestamp: new Date(Date.now() - 10800000).toISOString(),
         likes: 25,
         replies: 1
+      },
+      {
+        id: '3_reply_1',
+        author: 'Lisa Park',
+        text: 'Sama-sama, semoga bermanfaat untuk semuanya!',
+        timestamp: new Date(Date.now() - 10500000).toISOString(),
+        likes: 8,
+        replies: 0,
+        parentId: '3'
       },
       {
         id: '4',
@@ -319,7 +388,15 @@ export class ApifyService {
           author: "Demo User",
           timestamp: new Date().toISOString(),
           likes: 150,
-          shares: 25
+          shares: 25,
+          reactions: {
+            like: 85,
+            love: 35,
+            haha: 12,
+            wow: 8,
+            sad: 5,
+            angry: 5
+          }
         }
       }
     };

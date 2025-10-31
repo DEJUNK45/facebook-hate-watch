@@ -5,7 +5,7 @@ import { AnalysisForm } from '@/components/AnalysisForm';
 import { StatisticsCards } from '@/components/StatisticsCards';
 import { AnalysisChart } from '@/components/AnalysisChart';
 import { SentimentChart } from '@/components/SentimentChart';
-import { CommentsList } from '@/components/CommentsList';
+import { ThreadedCommentsList } from '@/components/ThreadedCommentsList';
 import { PostInfo } from '@/components/PostInfo';
 import { ApifyActorGuide } from '@/components/ApifyActorGuide';
 import { Button } from '@/components/ui/button';
@@ -114,8 +114,8 @@ const Index = () => {
               <SentimentChart statistics={analysisData.statistics} />
             </div>
             
-            {/* Comments List */}
-            <CommentsList analysisResults={analysisData.analysisResults} />
+            {/* Threaded Comments List */}
+            <ThreadedCommentsList analysisResults={analysisData.analysisResults} />
           </div>
         )}
       </main>

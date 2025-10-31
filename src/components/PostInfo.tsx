@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { FileText, Heart, Share2, Clock } from 'lucide-react';
+import { FileText, Heart, Share2, Clock, Laugh, Frown, Angry } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -12,6 +12,14 @@ interface PostData {
   timestamp: string;
   likes: number;
   shares: number;
+  reactions?: {
+    like: number;
+    love: number;
+    haha: number;
+    wow: number;
+    sad: number;
+    angry: number;
+  };
 }
 
 interface PostInfoProps {
@@ -56,15 +64,56 @@ export const PostInfo = ({ postData }: PostInfoProps) => {
         </div>
 
         {/* Post stats */}
-        <div className="flex items-center gap-4 pt-2 border-t">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Heart className="h-3 w-3" />
-            {postData.likes} likes
-          </Badge>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Share2 className="h-3 w-3" />
-            {postData.shares} shares
-          </Badge>
+        <div className="space-y-3 pt-2 border-t">
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Heart className="h-3 w-3" />
+              {postData.likes} likes
+            </Badge>
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Share2 className="h-3 w-3" />
+              {postData.shares} shares
+            </Badge>
+          </div>
+          
+          {/* Reactions breakdown */}
+          {postData.reactions && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Reaksi Postingan:</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {postData.reactions.like > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    👍 Like: {postData.reactions.like}
+                  </Badge>
+                )}
+                {postData.reactions.love > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    ❤️ Love: {postData.reactions.love}
+                  </Badge>
+                )}
+                {postData.reactions.haha > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    😂 Haha: {postData.reactions.haha}
+                  </Badge>
+                )}
+                {postData.reactions.wow > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    😮 Wow: {postData.reactions.wow}
+                  </Badge>
+                )}
+                {postData.reactions.sad > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    😢 Sad: {postData.reactions.sad}
+                  </Badge>
+                )}
+                {postData.reactions.angry > 0 && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    😡 Angry: {postData.reactions.angry}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
