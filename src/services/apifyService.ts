@@ -210,15 +210,11 @@ export class ApifyService {
 
         console.log(`Total comments found: ${allComments.length}`);
         
-        // Batasi jumlah komentar sesuai resultsLimit (termasuk nested comments)
-        const limitedComments = allComments.slice(0, resultsLimit);
-        console.log(`Comments after limit applied: ${limitedComments.length}`);
-        
-        if (limitedComments.length > 0) {
+        if (allComments.length > 0) {
           return {
             success: true,
             data: {
-              comments: limitedComments,
+              comments: allComments,
               postData: postInfo
             }
           };

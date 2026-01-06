@@ -19,7 +19,6 @@ import TopicClustering from '@/components/TopicClustering';
 import EntityTargets from '@/components/EntityTargets';
 import EmojiDisplay from '@/components/EmojiDisplay';
 import CommentDisplay from '@/components/CommentDisplay';
-import { ThreadedCommentsWithDrawer } from '@/components/ThreadedCommentsWithDrawer';
 import { SentimentChart } from '@/components/SentimentChart';
 import { UUITEAnalysis } from '@/components/UUITEAnalysis';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -89,7 +88,6 @@ const FacebookAnalysis = () => {
   const [resultsLimit, setResultsLimit] = useState(50);
   const [showImages, setShowImages] = useState(true);
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
-  const [threadedResults, setThreadedResults] = useState<any[]>([]);
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [useGemini, setUseGemini] = useState(false);
   const { toast } = useToast();
@@ -352,25 +350,6 @@ const FacebookAnalysis = () => {
         imageUrl: comment.imageUrl,
         attachments: comment.attachments
       }));
-
-      // Buat threaded results untuk tampilan hirarki
-      const threadedAnalysisResults = response.data.comments.map((comment, index) => ({
-        comment: {
-          id: comment.id || `comment_${index}`,
-          author: comment.author,
-          text: comment.text,
-          timestamp: comment.timestamp || new Date().toISOString(),
-          likes: comment.likes,
-          replies: comment.replies,
-          parentId: comment.parentId,
-          imageUrl: comment.imageUrl,
-          attachments: comment.attachments
-        },
-        sentiment: analysisResults[index]?.sentiment || 'neutral',
-        category: analysisResults[index]?.category,
-        confidence: analysisResults[index]?.confidence || 0.5
-      }));
-      setThreadedResults(threadedAnalysisResults);
 
       const convertedStats: Statistics = {
         total: stats.total,
@@ -645,10 +624,10 @@ const FacebookAnalysis = () => {
                   </TabsContent>
 
                   <TabsContent value="comments">
-                    {/* Comments Display with Threaded View */}
+                    {/* Comments Display */}
                     {showDetailedView && (
                         <div className="space-y-4">
-                          <div className="flex flex-wrap justify-between items-center gap-4">
+                          <div className="flex justify-between items-center">
                             <div className="flex items-center gap-4">
                               <h3 className="text-xl font-semibold">Detail Komentar:</h3>
                               <DropdownMenu>
@@ -662,7 +641,7 @@ const FacebookAnalysis = () => {
                                     Download
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent className="bg-popover">
+                                <DropdownMenuContent>
                                   <DropdownMenuItem onClick={downloadCommentsAsCSV}>
                                     <Download className="h-4 w-4 mr-2" />
                                     Download CSV
@@ -679,13 +658,64 @@ const FacebookAnalysis = () => {
                             </Badge>
                           </div>
 
-                          {/* Threaded Comments dengan Drawer */}
-                          {threadedResults.length > 0 && (
-                            <ThreadedCommentsWithDrawer 
-                              analysisResults={threadedResults}
-                              showImages={showImages}
-                            />
-                          )}
+                        {showImages ? (
+                          <div className="space-y-4">
+                            {analysisData.results.map((result, index) => {
+                              const comment = {
+                                id: `comment_${index}`,
+                                author: result.userName,
+                                text: result.text,
+                                timestamp: new Date().toISOString(),
+                                imageUrl: result.imageUrl,
+                                attachments: result.attachments
+                              };
+                              
+                              return (
+                                <CommentDisplay
+                                  key={index}
+                                  comment={comment}
+                                  classification={result.classification}
+                                  getClassificationBadge={getClassificationBadge}
+                                />
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <Card>
+                            <div className="max-h-96 overflow-y-auto">
+                              <Table>
+                                <TableHeader className="sticky top-0 bg-background">
+                                  <TableRow>
+                                    <TableHead>Akun</TableHead>
+                                    <TableHead>Komentar</TableHead>
+                                    <TableHead>Klasifikasi</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {analysisData.results.map((result, index) => (
+                                    <TableRow key={index}>
+                                      <TableCell className="font-medium">{result.userName}</TableCell>
+                                      <TableCell className="max-w-xs">
+                                        <div className="space-y-1">
+                                          <p className="text-sm break-words">
+                                            {result.text.length > 100 ? `${result.text.substring(0, 100)}...` : result.text}
+                                          </p>
+                                          <EmojiDisplay text={result.text} />
+                                          {(result.imageUrl || (result.attachments && result.attachments.length > 0)) && (
+                                            <Badge variant="secondary" className="text-xs">
+                                              📷 Media
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell>{getClassificationBadge(result.classification)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </Card>
+                        )}
                         
                         <p className="text-xs text-muted-foreground">
                           * Analisis menggunakan {useAdvancedAnalysis ? 'IndoBERT dan LDA clustering' : 'keyword-based analysis'} untuk mendeteksi ujaran kebencian dan topik.
